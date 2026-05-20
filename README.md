@@ -1,73 +1,43 @@
-# vue-project
+# Storyteller
 
-This template should help get you started developing with Vue 3 in Vite.
+A browser-based card narrative engine and UGC platform. Stories are configured entirely through JSON files — one folder equals one story. The engine is genre-agnostic and operates on mathematical primitives: a hex grid, cards, variables, and conditions. All internal numbers are hidden from the player behind narrative text, keeping gameplay focused on storytelling.
 
-## Recommended IDE Setup
+> This project is fully written by [Claude Code](https://claude.ai/code) (claude-cli).
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+## How it works
 
-## Recommended Browser Setup
+The game board is a hex grid rendered with pure SVG (no Canvas or game engine). Each session runs a 4-phase loop:
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+1. **Move** — player steps to an adjacent hex; the engine reads the event attached to it and displays its narrative text.
+2. **Play cards** — player picks cards from hand (text-only, no visible stats); each card secretly adds weight to a hidden counter.
+3. **Accept consequences** — the engine compares the hidden counter against the event's difficulty and resolves one of three branches: Failure, Success, or Critical Success.
+4. **Story intervention** — every few turns the engine deals a narrative card that the player must place on the grid, permanently rewriting that hex.
 
-## Type Support for `.vue` Imports in TS
+## Platform zones
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+- **Story Catalog** — browse and filter community stories by genre tag and rating; launch any story instantly.
+- **Game Client** — lightweight player that downloads a story's JSON config once, then runs the entire loop locally in the browser with no further network calls.
+- **Browser Editor** — visual constructor for authoring stories: click hexes to assign terrain tags, fill in event pools and card decks, then publish directly to the shared platform.
 
-## Customize configuration
+## Tech stack
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+- Vue 3 (Composition API, `<script setup>`)
+- TypeScript (strict mode)
+- Vite
+- Pinia
+- Vue Router
+- SVG hex grid (axial coordinates)
+- Supabase (PostgreSQL + Storage + Auth) — planned for Stage 4
 
-## Project Setup
+## Development
 
 ```sh
 pnpm install
+pnpm dev          # dev server with HMR
+pnpm build        # type-check + production build
+pnpm lint         # oxlint + eslint
+pnpm test:unit    # vitest
+pnpm test:e2e     # playwright
 ```
 
-### Compile and Hot-Reload for Development
-
-```sh
-pnpm dev
-```
-
-### Type-Check, Compile and Minify for Production
-
-```sh
-pnpm build
-```
-
-### Run Unit Tests with [Vitest](https://vitest.dev/)
-
-```sh
-pnpm test:unit
-```
-
-### Run End-to-End Tests with [Playwright](https://playwright.dev)
-
-```sh
-# Install browsers for the first run
-npx playwright install
-
-# When testing on CI, must build the project first
-pnpm build
-
-# Runs the end-to-end tests
-pnpm test:e2e
-# Runs the tests only on Chromium
-pnpm test:e2e --project=chromium
-# Runs the tests of a specific file
-pnpm test:e2e tests/example.spec.ts
-# Runs the tests in debug mode
-pnpm test:e2e --debug
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-pnpm lint
-```
+Deployed automatically to GitHub Pages on every push to `main` via GitHub Actions.
