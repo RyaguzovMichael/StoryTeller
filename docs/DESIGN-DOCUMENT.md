@@ -1,51 +1,53 @@
-# **Дизайн-документ: Универсальный карточный нарративный движок (Версия 2\)**
+# **Design Document: Universal Card Narrative Engine (Version 2)**
 
-## **1\. Общая концепция и философия**
+## **1. General Concept and Philosophy**
 
-Основная цель — создать конструктор для рассказывания историй, который конфигурируется исключительно через текстовые файлы, где одна папка равна одной истории. Движок является абсолютно универсальным медиатором, не привязанным к конкретным жанрам. Он оперирует только математическими понятиями: координатами, сущностями (картами), переменными и условиями. Игровой процесс опирается на принцип «Easy to start», где все внутренние числа и параметры скрыты от игрока под художественными текстовыми описаниями, что создает дополнительное психологическое напряжение и фокус на нарративе.  
-Для минимизации барьера входа и формирования первоначальной аудитории платформа создается как полностью **браузерная среда**. Это превращает проект в единый UGC-хаб (User-Generated Content), где пользователи могут бесшовно переключаться между игрой в чужие истории и созданием собственных.
+The primary goal is to create a story-building toolkit configured exclusively through text files, where one folder equals one story. The engine is a fully universal mediator, not tied to any specific genre. It operates solely on mathematical concepts: coordinates, entities (cards), variables, and conditions. Gameplay is built on an "Easy to Start" principle, where all internal numbers and parameters are hidden from the player behind artistic text descriptions, creating additional psychological tension and a focus on narrative.
 
-## **2\. Генерация игрового мира (Система Тегов)**
+To minimize the barrier to entry and build an initial audience, the platform is built as a fully **browser-based environment**. This turns the project into a unified UGC hub (User-Generated Content), where users can seamlessly switch between playing other people's stories and creating their own.
 
-Поле представляет собой сетку гексов, которая формируется на основе тегов ландшафта, а не жестко заданных событий, что позволяет авторам легко настраивать генератор.
+## **2. Game World Generation (Tag System)**
 
-* **Разметка карты:** Каждая клетка матрицы имеет только текстовый маркер (например, \[Болото\], \[Таверна\]).  
-* **Пул событий:** В конфигурационном файле events.json автор прописывает, какие события могут появиться на конкретном теге и с какой вероятностью.  
-* **Инициализация:** При старте игры движок пробегается по сетке, бросает виртуальный кубик и связывает каждую координату с конкретным ID события из пула подходящего тега.
+The field is a hex grid formed based on landscape tags rather than hard-coded events, allowing authors to easily configure the generator.
 
-## **3\. Игровой цикл и механика скрытых проверок**
+* **Map Markup:** Each cell in the matrix has only a text marker (e.g., \[Swamp\], \[Tavern\]).
+* **Event Pool:** In the configuration file events.json, the author specifies which events can appear on a given tag and with what probability.
+* **Initialization:** When the game starts, the engine iterates over the grid, rolls a virtual die, and associates each coordinate with a specific event ID from the pool matching the appropriate tag.
 
-Цикл взаимодействия игрока с клеткой делится на 4 строгие фазы:
+## **3. Game Loop and Hidden Check Mechanics**
 
-| Фаза | Название фазы | Механика и поведение движка   |
+The player's interaction cycle with a cell is divided into 4 strict phases:
+
+| Phase | Phase Name | Engine Mechanics and Behavior |
 | :---- | :---- | :---- |
-| **Фаза 1** | Базовое перемещение | Игрок перемещает фишку на смежную клетку. Движок считывает ID события, привязанного к гексу, и выводит на экран его художественное описание. |
-| **Фаза 2** | Слепой розыгрыш | Игрок оценивает ситуацию по тексту и выкладывает карты из руки. Карты не имеют видимых параметров, на них написан только текст. Каждая карта добавляет скрытые очки к системному счетчику события. |
-| **Фаза 3** | Принять последствия | Игрок нажимает кнопку «Принять последствия». Движок суммирует скрытые очки от всех выложенных карт, сравнивает их со сложностью события и выбирает одну из скрытых развилок (Провал / Успех / Критический успех). |
-| **Фаза 4** | Сюжетное вмешательство (Мета-триггер) | Раз в несколько ходов базовое перемещение блокируется. Движок выдает игроку «Сюжетную карту». Игрок обязан выложить её на поле, навсегда переписав тег и базовое событие выбранного гекса. |
+| **Phase 1** | Basic Movement | The player moves their token to an adjacent cell. The engine reads the event ID linked to the hex and displays its artistic description on screen. |
+| **Phase 2** | Blind Play | The player evaluates the situation by the text and plays cards from their hand. Cards have no visible parameters — only text is written on them. Each card adds hidden points to the event's system counter. |
+| **Phase 3** | Accept Consequences | The player clicks the "Accept Consequences" button. The engine sums the hidden points from all played cards, compares them against the event's difficulty, and selects one of the hidden branches (Failure / Success / Critical Success). |
+| **Phase 4** | Story Intervention (Meta-Trigger) | Every few turns, basic movement is blocked. The engine deals the player a "Story Card." The player must place it on the field, permanently rewriting the tag and base event of the chosen hex. |
 
-## **4\. Системы автоматизации и реагирования**
+## **4. Automation and Response Systems**
 
-### **4.1. Реактивная система финалов (EndGameManager)**
+### **4.1. Reactive Ending System (EndGameManager)**
 
-Завершение игры не привязано к началу или концу хода. Движок работает по паттерну Наблюдателя (Event Listener), постоянно слушая поток системных событий, и может прервать игру в любую секунду при фиксации триггеров:
+Game endings are not tied to the start or end of a turn. The engine operates on the Observer pattern (Event Listener), continuously listening to the system event stream, and can interrupt the game at any moment upon detecting triggers:
 
-* **Событие «Изменение Ресурса»:** Срабатывает мгновенно, когда числовое значение ресурса меняется. Если переменная достигает заданного автором критического значения, игра прерывается экраном финала.  
-* **Событие «Смена Координат»:** Фишка игрока переместилась на специфический финальный гекс с определенным \[X, Y\].  
-* **Событие «Карта получена в руку»:** В массив руки добавляется ID карты, которая помечена как финальная.
+* **"Resource Change" Event:** Fires instantly when the numeric value of a resource changes. If a variable reaches a critical value set by the author, the game is interrupted with an ending screen.
+* **"Coordinate Change" Event:** The player's token has moved to a specific final hex at a defined \[X, Y\].
+* **"Card Added to Hand" Event:** A card ID marked as a final card is added to the hand array.
 
-### **4.2. Система Системных Сообщений (SystemNotificationManager)**
+### **4.2. System Notification System (SystemNotificationManager)**
 
-Для реализации полноценного внутриигрового обучения, вывода подсказок и уведомлений о скрытых процессах, движок поддерживает механизм принудительных системных окон (поп-апов).  
-Любое игровое событие, фаза или изменение переменных может содержать массив system\_notifications. При срабатывании триггера движок приостанавливает выполнение текущей фазы и рендерит поверх игрового интерфейса модальное окно с авторским текстом. Игра продолжается только после того, как игрок нажмет кнопку подтверждения в окне.
+To support full in-game tutorials, hints, and notifications about hidden processes, the engine provides a mechanism for forced system windows (pop-ups).
 
-## **5\. Экосистема Платформы (UGC & Браузер)**
+Any game event, phase, or variable change can contain a system\_notifications array. When a trigger fires, the engine pauses execution of the current phase and renders a modal window with the author's text over the game interface. The game resumes only after the player clicks the confirmation button in the window.
 
-Поскольку движок полностью универсален и работает на JSON, веб\-интерфейс разделяется на три ключевые зоны:
+## **5. Platform Ecosystem (UGC & Browser)**
 
-* **Каталог историй:** Главная страница платформы. Сортировка по рейтингу, оценкам, тегам (фэнтези, детектив, хоррор) и авторам. Обеспечивает мгновенный запуск любой истории без скачивания.  
-* **Игровой клиент (Плеер):** Легковесный веб\-фронтенд, который парсит JSON-файлы выбранной истории и рендерит интерфейс: игровое поле, руку карт, скрытые ресурсы и текстовое полотно.  
-* **Браузерный Редактор (Визуальный Конструктор):** Инструмент для создания контента без написания кода.  
-  * **Простой интерфейс таблиц и форм:** На начальном этапе авторам предоставляется табличный и формовый ввод для заполнения параметров карт, тегов ландшафта и условий.  
-  * **Инструмент разметки сетки:** Визуальная карта, где автор кликом мыши может выставлять теги клеток (например, клик на ячейку \[0,2\] \-\> выбор тега \[Болото\]).  
-  * **Экспорт в JSON:** По кнопке «Опубликовать» редактор автоматически валидирует логические связи, компилирует данные в структуру файлов JSON и загружает историю в общую базу данных платформы.
+Since the engine is fully universal and runs on JSON, the web interface is divided into three key zones:
+
+* **Story Catalog:** The platform's main page. Sorting by rating, reviews, tags (fantasy, detective, horror), and authors. Provides instant launch of any story without downloading.
+* **Game Client (Player):** A lightweight web frontend that parses the JSON files of the selected story and renders the interface: the game field, card hand, hidden resources, and text canvas.
+* **Browser Editor (Visual Constructor):** A tool for creating content without writing code.
+  * **Simple Table and Form Interface:** At the initial stage, authors are provided with table and form input to fill in card parameters, landscape tags, and conditions.
+  * **Grid Markup Tool:** A visual map where the author can set cell tags by clicking (e.g., click on cell \[0,2\] → select tag \[Swamp\]).
+  * **Export to JSON:** Via the "Publish" button, the editor automatically validates logical links, compiles data into a JSON file structure, and uploads the story to the shared platform database.
