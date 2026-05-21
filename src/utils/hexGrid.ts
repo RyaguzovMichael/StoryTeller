@@ -1,6 +1,6 @@
 import type { Coord } from '@/types/scenario'
 
-export const HEX_SIZE = 32
+export const HEX_SIZE = 24
 
 export const NEIGHBOR_DIRS: ReadonlyArray<Coord> = [
   { q: 1, r: 0 },

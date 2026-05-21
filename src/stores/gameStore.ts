@@ -73,11 +73,6 @@ export const useGameStore = defineStore('game', () => {
     cell.is_revealed = true
     if (cell.event_id) {
       currentEventId.value = cell.event_id
-      const event = currentEvent.value
-      if (event) {
-        const notifications = useNotificationStore()
-        notifications.push(event.text, 'info')
-      }
       phase.value = 'draw'
     } else {
       currentEventId.value = null
@@ -149,10 +144,6 @@ export const useGameStore = defineStore('game', () => {
       if (narrative) {
         pendingNarrativeCard.value = { ...narrative, id: `${narrative.id}-t${turnCount.value}` }
         phase.value = 'narrative-intervention'
-        notifications.push(
-          'A narrative intervention demands your attention. Place the card on any hex.',
-          'info',
-        )
         return
       }
     }

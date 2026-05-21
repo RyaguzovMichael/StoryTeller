@@ -3,11 +3,9 @@ import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import HexGrid from '@/components/HexGrid.vue'
 import PlayerHand from '@/components/PlayerHand.vue'
-import ActiveZone from '@/components/ActiveZone.vue'
+import EventPanel from '@/components/EventPanel.vue'
 import NarrativeCardDrop from '@/components/NarrativeCardDrop.vue'
 import ResourceBar from '@/components/ResourceBar.vue'
-import NarrativeText from '@/components/NarrativeText.vue'
-import ConfirmButton from '@/components/ConfirmButton.vue'
 import { useGameStore } from '@/stores/gameStore'
 import { useEndGameManager } from '@/composables/useEndGameManager'
 import { loadOrCreateScenario } from '@/utils/storage'
@@ -36,13 +34,16 @@ onMounted(() => {
 
 const adjacencyHints = computed<Set<string>>(() => game.adjacencyHints())
 
-const narrativeText = computed<string>(() => {
+const eventOpen = computed<boolean>(
+  () => phase.value === 'draw' && !!currentEvent.value,
+)
+
+const movementHint = computed<string>(() => {
   if (isGameOver.value) return 'The journey ends here.'
   if (phase.value === 'narrative-intervention')
-    return 'A narrative card has appeared. Drag it onto a hex on the map.'
-  if (phase.value === 'draw' && currentEvent.value) return currentEvent.value.text
-  if (phase.value === 'consequences') return 'Resolving consequences…'
-  return 'Choose an adjacent hex to move.'
+    return 'A narrative card has appeared — drop it onto any hex.'
+  if (phase.value === 'movement') return 'Choose an adjacent hex to move.'
+  return ''
 })
 
 function onHandUpdate(cards: Card[]): void {
@@ -54,10 +55,7 @@ function onActiveUpdate(cards: Card[]): void {
 
 function onHexClick(coord: Coord): void {
   if (phase.value === 'movement') game.selectHex(coord)
-}
-
-function onHexDrop(coord: Coord): void {
-  if (phase.value === 'narrative-intervention') game.placeNarrativeCard(coord)
+  else if (phase.value === 'narrative-intervention') game.placeNarrativeCard(coord)
 }
 
 function onConfirm(): void {
@@ -72,52 +70,56 @@ const dragLocked = computed<boolean>(
 <template>
   <main class="game-view">
     <header class="top-bar">
-      <h1>Storyteller</h1>
-      <nav>
-        <RouterLink to="/editor">Editor</RouterLink>
-      </nav>
+      <div class="brand">
+        <h1>Storyteller</h1>
+        <nav>
+          <RouterLink to="/editor">Editor</RouterLink>
+        </nav>
+      </div>
+      <ResourceBar :resources="resources" />
     </header>
 
-    <ResourceBar :resources="resources" />
+    <section class="board-area">
+      <div class="board-frame">
+        <HexGrid
+          :cells="cells"
+          :radius="mapRadius"
+          :player-position="position"
+          :highlight-set="adjacencyHints"
+          :drop-mode="phase === 'narrative-intervention'"
+          :dimmed="eventOpen"
+          @hex-click="onHexClick"
+        />
 
-    <NarrativeText :text="narrativeText" :phase="phase" />
+        <p v-if="movementHint" class="movement-hint">{{ movementHint }}</p>
 
-    <section class="grid-wrapper">
-      <HexGrid
-        :cells="cells"
-        :radius="mapRadius"
-        :player-position="position"
-        :highlight-set="adjacencyHints"
-        :drop-mode="phase === 'narrative-intervention'"
-        @hex-click="onHexClick"
-        @hex-drop="onHexDrop"
-      />
+        <div v-if="eventOpen" class="event-anchor">
+          <EventPanel
+            :text="currentEvent!.text"
+            :active-zone="activeZone"
+            :can-confirm="true"
+            :disabled="isGameOver"
+            @update:active-zone="onActiveUpdate"
+            @confirm="onConfirm"
+          />
+        </div>
+
+        <aside
+          v-if="phase === 'narrative-intervention' && pendingNarrativeCard"
+          class="narrative-anchor"
+        >
+          <NarrativeCardDrop :card="pendingNarrativeCard" />
+        </aside>
+      </div>
     </section>
 
-    <section class="play-area">
+    <div class="hand-dock">
       <PlayerHand
         :model-value="hand"
         :disabled="dragLocked"
         @update:model-value="onHandUpdate"
       />
-      <ActiveZone
-        :model-value="activeZone"
-        :disabled="dragLocked"
-        @update:model-value="onActiveUpdate"
-      />
-    </section>
-
-    <footer class="controls">
-      <ConfirmButton
-        :disabled="phase !== 'draw' || activeZone.length === 0"
-        label="Confirm Play"
-        @confirm="onConfirm"
-      />
-      <NarrativeCardDrop
-        v-if="phase === 'narrative-intervention' && pendingNarrativeCard"
-        :card="pendingNarrativeCard"
-      />
-    </footer>
+    </div>
   </main>
 </template>
 
@@ -125,34 +127,122 @@ const dragLocked = computed<boolean>(
 .game-view {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding: 1rem;
-  max-width: 1100px;
-  margin: 0 auto;
+  height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(1200px 600px at 50% -20%, #2c2218 0%, transparent 70%),
+    linear-gradient(180deg, #1a140c 0%, #0d0a06 100%);
+  color: #f4ead2;
+  box-sizing: border-box;
 }
 .top-bar {
+  flex: 0 0 auto;
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #3a2c18;
+}
+.top-bar .brand {
+  display: flex;
   align-items: baseline;
+  gap: 1.25rem;
+  min-width: 0;
 }
 .top-bar h1 {
   margin: 0;
+  font-family: Georgia, 'Iowan Old Style', serif;
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+  color: #f4ead2;
+  white-space: nowrap;
 }
-.grid-wrapper {
-  border: 1px solid #ccc;
-  background: #fdfdfa;
-  border-radius: 6px;
-  padding: 0.5rem;
-  height: 420px;
+.top-bar nav :deep(a) {
+  color: #d9c084;
+  text-decoration: none;
+  border-bottom: 1px dashed #806340;
+  padding-bottom: 1px;
+  font-size: 0.9rem;
 }
-.play-area {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+.top-bar nav :deep(a:hover) {
+  color: #fff3cf;
 }
-.controls {
+.top-bar :deep(.resource-bar) {
+  margin: 0;
+  padding: 0.3rem 0.6rem;
+  flex: 0 1 auto;
+}
+.top-bar :deep(.resource-bar ul) {
+  gap: 0.9rem;
+}
+.board-area {
+  flex: 1 1 auto;
+  position: relative;
+  padding: 0.5rem 0.75rem 0;
+  min-height: 0;
   display: flex;
-  align-items: flex-start;
-  gap: 1rem;
+}
+.board-frame {
+  position: relative;
+  flex: 1 1 auto;
+  border: 1px solid #4a3a22;
+  background:
+    radial-gradient(900px 500px at 50% 30%, #fdfaf0 0%, #e7dcc0 70%, #cbb98c 100%);
+  border-radius: 10px;
+  box-shadow:
+    inset 0 0 60px rgba(80, 50, 10, 0.25),
+    0 10px 30px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  min-height: 0;
+}
+.movement-hint {
+  position: absolute;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0.3rem 0.8rem;
+  background: rgba(20, 14, 6, 0.65);
+  color: #fff3cf;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  z-index: 5;
+}
+.event-anchor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1rem;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+}
+.event-anchor::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(20, 14, 6, 0) 0%,
+    rgba(20, 14, 6, 0.35) 100%
+  );
+  pointer-events: none;
+}
+.narrative-anchor {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 12;
+}
+.hand-dock {
+  flex: 0 0 auto;
+  width: 100%;
+  background: linear-gradient(180deg, #1a140c 0%, #0a0703 100%);
+  border-top: 1px solid #3a2c18;
+  box-shadow: 0 -8px 16px rgba(0, 0, 0, 0.45);
 }
 </style>
