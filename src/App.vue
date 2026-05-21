@@ -1,7 +1,10 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import SystemNotificationManager from '@/components/SystemNotificationManager.vue'
+</script>
 
 <template>
-  <p>System initialized. Ready to load game core modules</p>
+  <RouterView />
+  <SystemNotificationManager />
 </template>
 
 <style scoped></style>
