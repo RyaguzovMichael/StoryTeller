@@ -20,7 +20,6 @@ export const useGameStore = defineStore('game', () => {
   const turnCount = ref<number>(0)
 
   const cells = computed<HexCell[]>(() => scenario.value?.mapData.cells ?? [])
-  const mapRadius = computed<number>(() => scenario.value?.mapData.radius ?? 0)
   const currentEvent = computed<GameEvent | null>(() => {
     if (!scenario.value || !currentEventId.value) return null
     return scenario.value.eventsData.find((e) => e.id === currentEventId.value) ?? null
@@ -194,7 +193,6 @@ export const useGameStore = defineStore('game', () => {
     pendingNarrativeCard,
     turnCount,
     cells,
-    mapRadius,
     currentEvent,
     isGameOver,
     initFromScenario,

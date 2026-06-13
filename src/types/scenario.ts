@@ -12,7 +12,6 @@ export interface HexCell {
 }
 
 export interface MapConfig {
-  radius: number
   cells: HexCell[]
 }
 

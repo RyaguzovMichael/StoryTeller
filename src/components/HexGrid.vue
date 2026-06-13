@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Coord, HexCell } from '@/types/scenario'
-import { HEX_SIZE, axialToPixel, coordKey, hexCorners } from '@/utils/hexGrid'
+import { coordKey } from '@/utils/hexGrid'
+import { HEX_SIZE, HexLayout } from '@/utils/hexLayout'
 
 const props = defineProps<{
   cells: HexCell[]
-  radius: number
   playerPosition?: Coord
   highlightSet?: Set<string>
   dropMode?: boolean
@@ -45,27 +45,42 @@ onBeforeUnmount(() => {
   resizeObserver = null
 })
 
+// Hex size lives in a ref so the layout can later become reactive (zoom, scale).
+// Rebuilding the HexLayout whenever the size changes recomputes all geometry.
+const hexSize = ref(HEX_SIZE)
+const layout = computed(() => new HexLayout(hexSize.value))
+
 const cameraCenter = computed(() => {
   if (!props.playerPosition) return { x: 0, y: 0 }
-  return axialToPixel(props.playerPosition)
+  return layout.value.axialToPixel(props.playerPosition)
 })
 
+// With a player present (game), the camera follows the player at a fixed zoom.
+// Without a player (editor preview), frame the whole map regardless of its shape.
 const viewBox = computed(() => {
-  const w = containerW.value / VIEW_SCALE
-  const h = containerH.value / VIEW_SCALE
-  const cx = cameraCenter.value.x - w / 2
-  const cy = cameraCenter.value.y - h / 2
-  return `${cx} ${cy} ${w} ${h}`
+  if (!props.playerPosition) {
+    return layout.value.viewBoxForCells(props.cells)
+  }
+  const viewWidth = containerW.value / VIEW_SCALE
+  const viewHeight = containerH.value / VIEW_SCALE
+  const originX = cameraCenter.value.x - viewWidth / 2
+  const originY = cameraCenter.value.y - viewHeight / 2
+  return `${originX} ${originY} ${viewWidth} ${viewHeight}`
 })
 
-const terrainFontSize = computed(() => HEX_SIZE * 0.28)
-const eventFontSize = computed(() => HEX_SIZE * 0.4)
-const playerFontSize = computed(() => HEX_SIZE * 0.6)
-const terrainYOffset = computed(() => HEX_SIZE * 0.1)
-const eventYOffset = computed(() => HEX_SIZE * 0.35)
-const playerYOffset = computed(() => HEX_SIZE * 0.7)
-const baseStroke = computed(() => HEX_SIZE * 0.04)
-const playerStroke = computed(() => HEX_SIZE * 0.11)
+// "slice" fills the container (camera mode); "meet" fits the whole map in view.
+const aspectMode = computed(() =>
+  props.playerPosition ? 'xMidYMid slice' : 'xMidYMid meet',
+)
+
+const terrainFontSize = computed(() => hexSize.value * 0.28)
+const eventFontSize = computed(() => hexSize.value * 0.4)
+const playerFontSize = computed(() => hexSize.value * 0.6)
+const terrainYOffset = computed(() => hexSize.value * 0.1)
+const eventYOffset = computed(() => hexSize.value * 0.35)
+const playerYOffset = computed(() => hexSize.value * 0.7)
+const baseStroke = computed(() => hexSize.value * 0.04)
+const playerStroke = computed(() => hexSize.value * 0.11)
 
 interface RenderedCell {
   cell: HexCell
@@ -79,7 +94,7 @@ interface RenderedCell {
 
 const rendered = computed<RenderedCell[]>(() =>
   props.cells.map((cell) => {
-    const { x, y } = axialToPixel({ q: cell.q, r: cell.r })
+    const center = layout.value.axialToPixel({ q: cell.q, r: cell.r })
     const key = coordKey({ q: cell.q, r: cell.r })
     const isPlayer =
       !!props.playerPosition &&
@@ -88,9 +103,9 @@ const rendered = computed<RenderedCell[]>(() =>
     const highlighted = props.highlightSet?.has(key) ?? false
     return {
       cell,
-      cx: x,
-      cy: y,
-      points: hexCorners({ x, y }),
+      cx: center.x,
+      cy: center.y,
+      points: layout.value.hexCorners(center),
       key,
       highlighted,
       isPlayer,
@@ -121,7 +136,7 @@ function onHexClick(coord: Coord): void {
       :viewBox="viewBox"
       class="hex-grid"
       :class="{ dimmed }"
-      preserveAspectRatio="xMidYMid slice"
+      :preserveAspectRatio="aspectMode"
       xmlns="http://www.w3.org/2000/svg"
     >
       <g

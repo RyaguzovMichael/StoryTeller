@@ -17,7 +17,6 @@ const {
   resources,
   position,
   cells,
-  mapRadius,
   hand,
   activeZone,
   pendingNarrativeCard,
@@ -83,7 +82,6 @@ const dragLocked = computed<boolean>(
       <div class="board-frame">
         <HexGrid
           :cells="cells"
-          :radius="mapRadius"
           :player-position="position"
           :highlight-set="adjacencyHints"
           :drop-mode="phase === 'narrative-intervention'"

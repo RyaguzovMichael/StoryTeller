@@ -12,6 +12,7 @@ import {
   generateScenario,
   type GeneratorParams,
 } from '@/scenarios/default'
+import { recenterScenario } from '@/utils/mapTransforms'
 import type { Scenario } from '@/types/scenario'
 
 const notifications = useNotificationStore()
@@ -28,7 +29,6 @@ onMounted(() => {
 function setScenario(s: Scenario): void {
   scenario.value = s
   jsonText.value = JSON.stringify(s, null, 2)
-  params.mapRadius = s.mapData.radius
   params.deckSize = s.playerDeck.length
   params.narrativeCount = s.playerDeck.filter((c) => c.type === 'narrative').length
   params.eventCount = s.eventsData.length
@@ -59,8 +59,9 @@ function onSaveJson(): void {
       notifications.push('Invalid scenario: shape does not match the schema.', 'info')
       return
     }
-    saveScenario(parsed)
-    setScenario(parsed)
+    const centered = recenterScenario(parsed)
+    saveScenario(centered)
+    setScenario(centered)
     notifications.push('Scenario JSON saved.', 'info')
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown error'
@@ -68,8 +69,15 @@ function onSaveJson(): void {
   }
 }
 
+function onCenterMap(): void {
+  if (!scenario.value) return
+  const centered = recenterScenario(scenario.value)
+  saveScenario(centered)
+  setScenario(centered)
+  notifications.push('Map recentered around (0,0) and saved.', 'info')
+}
+
 const previewCells = computed(() => scenario.value?.mapData.cells ?? [])
-const previewRadius = computed(() => scenario.value?.mapData.radius ?? 0)
 </script>
 
 <template>
@@ -145,8 +153,11 @@ const previewRadius = computed(() => scenario.value?.mapData.radius ?? 0)
       <div class="preview-pane">
         <h2>Preview</h2>
         <div class="grid-wrapper">
-          <HexGrid :cells="previewCells" :radius="previewRadius" />
+          <HexGrid :cells="previewCells" />
         </div>
+        <button type="button" class="primary" @click="onCenterMap">
+          Center map
+        </button>
       </div>
     </section>
   </main>

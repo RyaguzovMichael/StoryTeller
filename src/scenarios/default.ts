@@ -145,7 +145,7 @@ export function generateScenario(params: GeneratorParams = DEFAULT_PARAMS): Scen
   return {
     id: `scenario-${params.seed}`,
     metadata: { title: 'Default Scenario' },
-    mapData: { radius: params.mapRadius, cells },
+    mapData: { cells },
     eventsData: events,
     playerDeck: deck,
     initial_resources: { health: 10, gold: 5 },
