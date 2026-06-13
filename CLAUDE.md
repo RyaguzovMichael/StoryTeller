@@ -4,19 +4,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+**Always use the `make` targets — not the raw `pnpm` scripts.** The `Makefile`
+is the project's task runner. Its prerequisite chain gates the "safe" path:
+`run → build → (test + type-check) → install`, so `make run` always installs,
+runs the tests, type-checks, and builds before serving the production build.
+
 ```sh
-pnpm install          # install dependencies
-pnpm dev              # start dev server with HMR
-pnpm build            # type-check + build to dist/
-pnpm preview          # preview production build locally
-pnpm lint             # oxlint then eslint (both with --fix)
-pnpm format           # prettier over src/
-pnpm test:unit        # vitest (unit tests in src/__tests__)
+make            # default: make run
+make run        # install → test → type-check → build → serve production build (pnpm preview)
+make dev        # fast, unguarded dev server with HMR (no tests/build) — plain pnpm dev
+make test       # run the unit suite once (vitest --run); gates build
+make type-check # vue-tsc type checking only
+make build      # type-check + production build to dist/ (depends on test + type-check)
+make lint       # oxlint then eslint (both with --fix)
+make format     # prettier over src/
+make clean      # remove dist/
 ```
 
-Run a single unit test file:
+The `Makefile` is read-only for Claude — propose changes and let the maintainer
+apply them. Run a single unit test file directly with vitest when needed:
 ```sh
-pnpm test:unit src/__tests__/App.spec.ts
+pnpm test:unit src/__tests__/hexGrid.spec.ts
 ```
 
 ## Architecture
