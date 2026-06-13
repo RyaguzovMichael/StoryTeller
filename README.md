@@ -37,7 +37,6 @@ pnpm dev          # dev server with HMR
 pnpm build        # type-check + production build
 pnpm lint         # oxlint + eslint
 pnpm test:unit    # vitest
-pnpm test:e2e     # playwright
 ```
 
 Deployed automatically to GitHub Pages on every push to `main` via GitHub Actions.

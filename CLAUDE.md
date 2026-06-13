@@ -12,17 +12,11 @@ pnpm preview          # preview production build locally
 pnpm lint             # oxlint then eslint (both with --fix)
 pnpm format           # prettier over src/
 pnpm test:unit        # vitest (unit tests in src/__tests__)
-pnpm test:e2e         # playwright e2e (requires built dist/ or running dev server)
 ```
 
 Run a single unit test file:
 ```sh
 pnpm test:unit src/__tests__/App.spec.ts
-```
-
-Run e2e tests on a specific browser:
-```sh
-pnpm test:e2e --project=chromium
 ```
 
 ## Architecture
