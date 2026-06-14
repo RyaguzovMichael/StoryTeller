@@ -1,13 +1,13 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import type { Card, Coord, GameEvent, HexCell, Scenario } from '@/types/scenario'
-import type { GamePhase } from '@/types/gameState'
-import { coordKey, isAdjacent } from '@/utils/hexGrid'
-import { createRng } from '@/utils/rng'
-import { saveScenario } from '@/utils/storage'
-import { useNotificationStore } from './notificationStore'
+import type { Card, Coord, GameEvent, HexCell, Scenario } from '@/engine/types/scenario'
+import type { GamePhase } from '@/engine/types/gameState'
+import { coordKey, isAdjacent } from '@/engine/hexGrid'
+import { createRng } from '@/engine/rng'
+import { saveScenario } from '@/infrastructure/storage'
+import { useNotificationStore } from '@/notifications/notificationStore'
 
-export const useGameStore = defineStore('game', () => {
+export const useGameEngine = defineStore('game', () => {
   const scenario = ref<Scenario | null>(null)
   const phase = ref<GamePhase>('movement')
   const resources = ref<Record<string, number>>({})

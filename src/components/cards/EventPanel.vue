@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import draggable from 'vuedraggable'
-import type { Card } from '@/types/scenario'
+import type { Card } from '@/engine/types/scenario'
 
 defineProps<{
   text: string

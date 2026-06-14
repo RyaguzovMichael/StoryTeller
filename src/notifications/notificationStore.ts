@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import type { NotificationKind, SystemNotification } from '@/types/gameState'
+import type { NotificationKind, SystemNotification } from './types'
 
 export const useNotificationStore = defineStore('notifications', () => {
   const queue = ref<SystemNotification[]>([])

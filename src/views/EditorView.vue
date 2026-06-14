@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import HexGrid from '@/components/HexGrid.vue'
-import { useNotificationStore } from '@/stores/notificationStore'
+import HexGrid from '@/components/board/HexGrid.vue'
+import { useNotificationStore } from '@/notifications/notificationStore'
 import {
   isScenario,
   loadOrCreateScenario,
   saveScenario,
-} from '@/utils/storage'
+} from '@/infrastructure/storage'
 import {
   DEFAULT_PARAMS,
   generateScenario,
   type GeneratorParams,
-} from '@/scenarios/default'
-import { recenterScenario } from '@/utils/mapTransforms'
-import type { Scenario } from '@/types/scenario'
+} from '@/engine/scenarioGenerator'
+import { recenterScenario } from '@/editor/mapTransforms'
+import type { Scenario } from '@/engine/types/scenario'
 
 const notifications = useNotificationStore()
 const scenario = ref<Scenario | null>(null)

@@ -8,8 +8,8 @@ import {
   isAdjacent,
   enumerateRadius,
   recenterCoords,
-} from '@/utils/hexGrid'
-import type { Coord } from '@/types/scenario'
+} from '@/engine/hexGrid'
+import type { Coord } from '@/engine/types/scenario'
 
 describe('NEIGHBOR_DIRS', () => {
   it('lists exactly six directions', () => {

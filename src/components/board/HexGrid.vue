@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import type { Coord, HexCell } from '@/types/scenario'
-import { coordKey } from '@/utils/hexGrid'
-import { HEX_SIZE, HexLayout } from '@/utils/hexLayout'
+import type { Coord, HexCell } from '@/engine/types/scenario'
+import { coordKey } from '@/engine/hexGrid'
+import { HEX_SIZE, HexLayout } from '@/components/board/hexLayout'
 
 const props = defineProps<{
   cells: HexCell[]

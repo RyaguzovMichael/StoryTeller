@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
-import HexGrid from '@/components/HexGrid.vue'
-import PlayerHand from '@/components/PlayerHand.vue'
-import EventPanel from '@/components/EventPanel.vue'
-import NarrativeCardDrop from '@/components/NarrativeCardDrop.vue'
-import ResourceBar from '@/components/ResourceBar.vue'
-import { useGameStore } from '@/stores/gameStore'
-import { useEndGameManager } from '@/composables/useEndGameManager'
-import { loadOrCreateScenario } from '@/utils/storage'
-import type { Card, Coord } from '@/types/scenario'
+import HexGrid from '@/components/board/HexGrid.vue'
+import PlayerHand from '@/components/cards/PlayerHand.vue'
+import EventPanel from '@/components/cards/EventPanel.vue'
+import NarrativeCardDrop from '@/components/cards/NarrativeCardDrop.vue'
+import ResourceBar from '@/components/hud/ResourceBar.vue'
+import { useGameEngine } from '@/engine/gameEngine'
+import { useEndGameManager } from '@/game/useEndGameManager'
+import { loadOrCreateScenario } from '@/infrastructure/storage'
+import type { Card, Coord } from '@/engine/types/scenario'
 
-const game = useGameStore()
+const game = useGameEngine()
 const {
   phase,
   resources,

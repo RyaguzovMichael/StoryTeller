@@ -1,5 +1,5 @@
-import type { Scenario } from '@/types/scenario'
-import { generateScenario, DEFAULT_PARAMS } from '@/scenarios/default'
+import type { Scenario } from '@/engine/types/scenario'
+import { generateScenario, DEFAULT_PARAMS } from '@/engine/scenarioGenerator'
 
 const SCENARIO_KEY = 'storyteller:scenario:v1'
 

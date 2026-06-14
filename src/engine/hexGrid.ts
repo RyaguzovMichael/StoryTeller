@@ -1,4 +1,4 @@
-import type { Coord } from '@/types/scenario'
+import type { Coord } from '@/engine/types/scenario'
 
 export const NEIGHBOR_DIRS: ReadonlyArray<Coord> = [
   { q: 1, r: 0 },

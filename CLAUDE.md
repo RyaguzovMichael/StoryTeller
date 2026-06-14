@@ -29,7 +29,41 @@ pnpm test:unit src/__tests__/hexGrid.spec.ts
 
 ## Architecture
 
-This is a **Vue 3 + TypeScript + Vite** SPA — a browser-based card narrative engine called "Storyteller." The project is currently at Stage 1 (infrastructure only); game logic has not yet been written.
+This is a **Vue 3 + TypeScript + Vite** SPA — a browser-based card narrative engine called "Storyteller."
+
+### Folder layout (`src/`)
+
+The tree is organized by **role/domain**, not by technical kind. The center is a
+portable game core (`engine/`) that everything else orbits.
+
+```
+engine/            Portable game core — no Vue components, no editor, no persistence.
+                   Intended for reuse in another game; keep it framework-light.
+  gameEngine.ts      Pinia state machine driving the 4-phase game loop (the engine).
+  hexGrid.ts         Pure axial-coordinate math (adjacency, distance, radius).
+  rng.ts             Deterministic seeded RNG.
+  scenarioGenerator.ts  Procedural Scenario generator.
+  types/
+    scenario/        Authored data contract, one type per file + barrel index.ts
+                     (coord, hexCell, card, event, scenario).
+    gameState/       Runtime state types (phase, gameState) + barrel index.ts.
+game/              Play-side glue around the engine (e.g. useEndGameManager.ts).
+editor/            Editor-side logic (mapTransforms.ts).
+views/             Route-level pages: GameView.vue, EditorView.vue.
+components/        Shared presentational UI, subdivided by role:
+  board/             HexGrid.vue + hexLayout.ts (SVG/pixel geometry — render, not rules).
+  cards/             PlayerHand, EventPanel, NarrativeCardDrop.
+  hud/               ResourceBar.
+  system/            SystemNotificationManager.
+notifications/     App-feedback store + its types (notificationStore.ts, types.ts).
+infrastructure/    Persistence layer (storage.ts — localStorage repository).
+router.ts          Routes (flat file, not a folder).
+```
+
+**Engine portability seams (not yet broken).** The engine still couples to Vue/UI
+in three spots; address these before extracting it: (1) `gameEngine` is a Pinia
+store; (2) it pushes UI notifications via `useNotificationStore`; (3)
+`placeNarrativeCard` calls `saveScenario` from `infrastructure/`.
 
 ### Planned architecture (per docs/DESIGN-DOCUMENT.md and docs/TASK.md)
 
@@ -47,17 +81,17 @@ The engine is a **Universal Card Narrative Engine** where stories are configured
 | 3 — Accept Consequences | Engine compares `$S` vs event difficulty; branches to Failure / Success / Critical Success; updates resources |
 | 4 — Story Intervention | Every N turns, player receives a narrative card that must be placed on a hex, permanently rewriting its tag and `event_id` |
 
-### Key data contracts (to be defined in `src/types/`)
-- `MapConfig` — 2D array of hex cells with axial coordinates, terrain tag, `event_id`, `is_revealed`
+### Key data contracts (in `src/engine/types/`)
+- `MapConfig` — array of hex cells with axial coordinates, terrain tag, `event_id`, `is_revealed`
 - `EventPool` — events with hidden difficulty, `success_outcome`, `fail_outcome` (resource deltas)
-- `PlayerDeck` — cards with id, narrative text, type (`standard` | `narrative`)
+- `PlayerDeck` — cards with id, narrative text, type (`standard` | `narrative`), hidden `weight`
 - `GameState` — resources, current phase, hand, position, hidden counter `$S`
-- `Story` — `{ id, metadata: { title, tags, rating }, mapData, eventsData, playerDeck }`
+- `Scenario` — `{ id, metadata, mapData, eventsData, playerDeck, ... }` (the persisted story JSON)
 
 ### Rendering
 - Hex grid: pure **SVG polygons** with axial coordinates — no Canvas, no Pixi.js/Phaser.
 - Cards: Drag-and-Drop via `vuedraggable`.
-- Endings and system notifications use Vue `watch`/`watchEffect` (Observer pattern) via `EndGameManager` and `SystemNotificationManager`.
+- Endings and system notifications use Vue `watch`/`watchEffect` (Observer pattern) via `game/useEndGameManager.ts` and `components/system/SystemNotificationManager.vue`.
 
 ### State and storage
 - **Stage 2** (current target): `localStorage` only, single test scenario.
@@ -65,11 +99,12 @@ The engine is a **Universal Card Narrative Engine** where stories are configured
 - **Stage 4**: Replace `localStorage` with **Supabase** (PostgreSQL metadata + Storage bucket for JSON files). RLS: public SELECT, author-only writes. Game loop stays local after initial JSON download.
 
 ### Routing
-`vue-router` is installed but routes array is empty. Planned routes:
-- `/` → `CatalogView`
-- `/game/:id` → `GameView`
-- `/editor/` → `EditorSelectorView`
-- `/editor/:id` → `EditorView`
+Routes live in `src/router.ts`. Current routes:
+- `/` → redirects to `/game`
+- `/game` → `GameView`
+- `/editor` → `EditorView`
+
+Planned (per design doc): `/` → `CatalogView`, `/game/:id`, `/editor/:id`.
 
 ### CI/CD
 GitHub Actions (`.github/workflows/deploy.yml`) deploys to GitHub Pages on push to `main`. Sets `VITE_BASE_PATH=/<repo-name>/` so Vite's `base` path is correct for subdirectory hosting. Uses `peaceiris/actions-gh-pages`. **Note:** the workflow uses `npm ci` — if switching fully to pnpm, this needs updating.

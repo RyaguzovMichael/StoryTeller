@@ -5,9 +5,9 @@ import type {
   HexCell,
   Outcome,
   Scenario,
-} from '@/types/scenario'
-import { coordKey, enumerateRadius } from '@/utils/hexGrid'
-import { createRng, type Rng } from '@/utils/rng'
+} from '@/engine/types/scenario'
+import { coordKey, enumerateRadius } from '@/engine/hexGrid'
+import { createRng, type Rng } from '@/engine/rng'
 
 export interface GeneratorParams {
   mapRadius: number

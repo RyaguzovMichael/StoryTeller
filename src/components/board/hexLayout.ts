@@ -6,7 +6,7 @@
 // captured once in the constructor, so every method derives its result from that
 // one stored value. A view can hold the size in a reactive ref and rebuild the
 // HexLayout instance whenever the size changes, making the whole render scale.
-import type { Coord } from '@/types/scenario'
+import type { Coord } from '@/engine/types/scenario'
 
 // Default hex circumradius, in SVG user units. On-screen size is this value
 // multiplied by the camera scale applied in the rendering component.

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import draggable from 'vuedraggable'
-import type { Card } from '@/types/scenario'
+import type { Card } from '@/engine/types/scenario'
 
 const props = defineProps<{
   modelValue: Card[]

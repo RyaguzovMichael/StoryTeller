@@ -1,8 +1,8 @@
 // Scenario-level map transforms. Kept separate from storage.ts (persistence) and
 // from hexGrid.ts (pure coordinate math): this layer knows the Scenario shape and
 // composes coordinate math into edits an author performs on a whole scenario.
-import type { HexCell, Scenario } from '@/types/scenario'
-import { recenterCoords } from './hexGrid'
+import type { HexCell, Scenario } from '@/engine/types/scenario'
+import { recenterCoords } from '@/engine/hexGrid'
 
 // Recenters the map around (0,0) so absolute coordinates stay small. The starting
 // position is recentered together with the cells, so it shifts by the same amount

@@ -1,8 +1,8 @@
 import { watch } from 'vue'
-import { useGameStore } from '@/stores/gameStore'
+import { useGameEngine } from '@/engine/gameEngine'
 
 export function useEndGameManager(): void {
-  const store = useGameStore()
+  const store = useGameEngine()
   watch(
     () => Object.values(store.resources),
     (vals) => {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Card } from '@/types/scenario'
+import type { Card } from '@/engine/types/scenario'
 
 defineProps<{
   card: Card
