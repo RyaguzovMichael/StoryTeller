@@ -18,3 +18,19 @@ export interface GameState {
   turnCount: number
   effects: GameEffect[]
 }
+
+export function createEmptyState(): GameState {
+  return {
+    scenario: null,
+    phase: 'movement',
+    resources: {},
+    position: { q: 0, r: 0 },
+    drawPile: [],
+    hand: [],
+    activeZone: [],
+    currentEventId: null,
+    pendingNarrativeCard: null,
+    turnCount: 0,
+    effects: [],
+  }
+}

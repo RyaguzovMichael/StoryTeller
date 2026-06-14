@@ -6,7 +6,8 @@
 // game/useEndGameManager.ts). Do not add actions here.
 import { computed, markRaw, reactive, toRefs } from 'vue'
 import { defineStore } from 'pinia'
-import { GameEngine, createEmptyState } from '@/engine/gameEngine'
+import { GameEngine } from '@/engine/gameEngine'
+import { createEmptyState } from '@/engine/types/gameState/gameState'
 
 export const useGame = defineStore('game', () => {
   const state = reactive(createEmptyState())
