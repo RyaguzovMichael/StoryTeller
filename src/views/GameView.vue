@@ -7,7 +7,6 @@ import EventPanel from '@/components/cards/EventPanel.vue'
 import NarrativeCardDrop from '@/components/cards/NarrativeCardDrop.vue'
 import ResourceBar from '@/components/hud/ResourceBar.vue'
 import { useGame } from '@/game/useGame'
-import { useEndGameManager } from '@/game/useEndGameManager'
 import { useGameEffects } from '@/game/useGameEffects'
 import { clearGame, loadGame, loadOrCreateScenario } from '@/infrastructure/storage'
 import { createGameState } from '@/engine/createGameState'
@@ -21,12 +20,11 @@ const {
   position,
   cells,
   hand,
-  activeZone,
+  tableau,
   pendingNarrativeCard,
   currentEvent,
 } = storeToRefs(game)
 
-useEndGameManager()
 useGameEffects()
 
 onMounted(() => {
@@ -36,7 +34,7 @@ onMounted(() => {
   const scenario = loadOrCreateScenario()
   const saved = loadGame()
   if (saved && saved.storyId === scenario.id && saved.phase !== 'game-over') {
-    game.engine.load({ ...saved, effects: [] })
+    game.engine.load(saved)
   } else {
     game.engine.load(createGameState(scenario))
   }
@@ -50,8 +48,6 @@ function onNewGame(): void {
 
 const gameOver = computed<boolean>(() => phase.value === 'game-over')
 
-const adjacencyHints = computed<Set<string>>(() => game.engine.adjacencyHints())
-
 const eventOpen = computed<boolean>(
   () => phase.value === 'draw' && !!currentEvent.value,
 )
@@ -64,15 +60,23 @@ const movementHint = computed<string>(() => {
   return ''
 })
 
-function onHandUpdate(cards: Card[]): void {
-  game.hand = cards
-}
-function onActiveUpdate(cards: Card[]): void {
-  game.activeZone = cards
+// Translate a drag into/out of the tableau into an engine command. The engine is
+// the sole mutator; the reactive state then redraws the lists.
+// TODO: this diffing against vuedraggable's emitted array is awkward — revisit
+// how drag-and-drop talks to the engine (and the disabled in-list reorder).
+function onTableauUpdate(next: Card[]): void {
+  const current = tableau.value
+  const added = next.find((card) => !current.some((existing) => existing.id === card.id))
+  if (added) {
+    game.engine.playCard(added)
+    return
+  }
+  const removed = current.find((card) => !next.some((existing) => existing.id === card.id))
+  if (removed) game.engine.returnCard(removed)
 }
 
 function onHexClick(coord: Coord): void {
-  if (phase.value === 'movement') game.engine.selectHex(coord)
+  if (phase.value === 'movement') game.engine.move(coord)
   else if (phase.value === 'narrative-intervention') game.engine.placeNarrativeCard(coord)
 }
 
@@ -106,7 +110,7 @@ const dragLocked = computed<boolean>(
         <HexGrid
           :cells="cells"
           :player-position="position"
-          :highlight-set="adjacencyHints"
+          :highlight-set="game.reachable"
           :drop-mode="phase === 'narrative-intervention'"
           :dimmed="eventOpen"
           @hex-click="onHexClick"
@@ -117,10 +121,10 @@ const dragLocked = computed<boolean>(
         <div v-if="eventOpen" class="event-anchor">
           <EventPanel
             :text="currentEvent!.text"
-            :active-zone="activeZone"
+            :tableau="tableau"
             :can-confirm="true"
             :disabled="gameOver"
-            @update:active-zone="onActiveUpdate"
+            @update:tableau="onTableauUpdate"
             @confirm="onConfirm"
           />
         </div>
@@ -135,11 +139,7 @@ const dragLocked = computed<boolean>(
     </section>
 
     <div class="hand-dock">
-      <PlayerHand
-        :model-value="hand"
-        :disabled="dragLocked"
-        @update:model-value="onHandUpdate"
-      />
+      <PlayerHand :model-value="hand" :disabled="dragLocked" />
     </div>
     </template>
   </main>

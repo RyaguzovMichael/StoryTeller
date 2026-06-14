@@ -6,79 +6,35 @@
 // Reactivity bridge: the engine mutates the state object it is handed. In the
 // Vue app the wrapper (game/useGame.ts) passes a `reactive()` object, so every
 // `this.state.x = ...` is tracked and the UI re-renders. In tests or Node, pass
-// a plain object — the same code runs with zero Vue. The engine never knows
-// which it got.
+// a plain object — the same code runs with zero Vue.
 //
-// Side effects (notifications, saving) are never performed here. The engine
-// appends a GameEffect to `state.effects`; a host observer drains and applies
-// them (see game/useGameEffects.ts). That keeps the core dependency-free.
+// Feedback to the host is two-channel: reactive state for continuous data, and
+// transient EngineEvents for one-off signals (notifications, persistence). The
+// engine performs no I/O; it hands events to onEvent subscribers. It is the only
+// writer of the state.
 import type { Card, Coord, HexCell } from '@/engine/types/scenario'
-import type { GameEffect, GameState, SavedGame } from '@/engine/types/gameState'
-import { coordKey, isAdjacent } from '@/engine/hexGrid'
+import type { EngineEvent, GameState } from '@/engine/types/gameState'
+import { isAdjacent } from '@/engine/hexGrid'
 import { createRng } from '@/engine/rng'
 
 export class GameEngine {
+  private listeners: Array<(event: EngineEvent) => void> = []
+
   constructor(private readonly state: GameState) {}
 
   // Single entry point for state. Accepts anything ready to play — a freshly
   // mapped scenario or a restored save — and hydrates the engine's reactive
-  // state object in place (it must stay the same object the store handed out).
-  // A fresh scenario mapping arrives uninitialized and gets the one-time setup;
-  // a save is already initialized and is loaded untouched.
+  // state object in place. A fresh scenario mapping arrives uninitialized and
+  // gets the one-time setup; a save is already initialized and is loaded untouched.
   load(state: GameState): void {
     Object.assign(this.state, state)
     if (!this.state.initialized) this.initialize()
   }
 
-  // One-time setup for a freshly mapped scenario: shuffle the draw pile, deal the
-  // opening hand, reveal the starting cell. Marks the state initialized and asks
-  // the host to reset (clears notifications, persists the fresh game).
-  private initialize(): void {
-    const rng = createRng(Date.now() & 0xffffff)
-    this.state.drawPile = rng.shuffle(this.state.drawPile)
-    this.drawToHandSize()
-    const startCell = this.cellAt(this.state.position)
-    if (startCell) startCell.is_revealed = true
-    this.state.initialized = true
-    this.emit({ kind: 'reset' })
-  }
-
-  // A persistable snapshot of the current game (without the transient effects).
-  snapshot(): SavedGame {
-    const { effects: _effects, ...rest } = this.state
-    return JSON.parse(JSON.stringify(rest)) as SavedGame
-  }
-
-  private sumActiveZoneWeight(): number {
-    return this.state.activeZone.reduce((sum, card) => sum + (card.weight ?? 0), 0)
-  }
-
-  private emit(effect: GameEffect): void {
-    this.state.effects.push(effect)
-  }
-
-  // Returns and clears the queued effects. The host calls this and applies them.
-  drainEffects(): GameEffect[] {
-    const drained = this.state.effects.slice()
-    this.state.effects.length = 0
-    return drained
-  }
-
-  private cellAt(coord: Coord): HexCell | undefined {
-    return this.state.cells.find((cell) => cell.q === coord.q && cell.r === coord.r)
-  }
-
-  private drawToHandSize(): void {
-    while (this.state.hand.length < this.state.initialHandSize && this.state.drawPile.length > 0) {
-      const card = this.state.drawPile.shift()
-      if (card) this.state.hand.push(card)
-    }
-  }
-
-  selectHex(target: Coord): void {
+  move(target: Coord): void {
     if (this.state.phase !== 'movement') return
     if (!isAdjacent(this.state.position, target)) return
-    const cell = this.cellAt(target)
+    const cell = this.findCellAt(target)
     if (!cell) return
     this.state.position = { q: target.q, r: target.r }
     cell.is_revealed = true
@@ -88,63 +44,62 @@ export class GameEngine {
     } else {
       this.state.currentEvent = null
     }
-    this.emit({ kind: 'player-move' })
+    this.emitPersist()
   }
 
-  playCard(cardId: string): void {
+  playCard(card: Card): void {
     if (this.state.phase !== 'draw') return
-    const index = this.state.hand.findIndex((c) => c.id === cardId)
+    const index = this.state.hand.findIndex((c) => c.id === card.id)
     if (index < 0) return
-    const card = this.state.hand.splice(index, 1)[0] as Card
-    this.state.activeZone.push(card)
+    const moved = this.state.hand.splice(index, 1)[0] as Card
+    this.state.tableau.push(moved)
   }
 
-  returnCard(cardId: string): void {
+  returnCard(card: Card): void {
     if (this.state.phase !== 'draw') return
-    const index = this.state.activeZone.findIndex((c) => c.id === cardId)
+    const index = this.state.tableau.findIndex((c) => c.id === card.id)
     if (index < 0) return
-    const card = this.state.activeZone.splice(index, 1)[0] as Card
-    this.state.hand.push(card)
-  }
-
-  private applyDeltas(deltas: Record<string, number>): void {
-    for (const [key, delta] of Object.entries(deltas)) {
-      const previous = this.state.resources[key] ?? 0
-      this.state.resources[key] = previous + delta
-    }
+    const moved = this.state.tableau.splice(index, 1)[0] as Card
+    this.state.hand.push(moved)
   }
 
   confirmPlay(): void {
     if (this.state.phase !== 'draw') return
     const event = this.state.currentEvent
     if (!event) {
-      this.state.activeZone = []
+      this.state.tableau = []
       this.state.phase = 'movement'
+      this.emitPersist()
       return
     }
 
-    const hidden = this.sumActiveZoneWeight()
+    const hidden = this.sumTableauWeight()
     let outcomeText: string
     if (event.critical_threshold !== undefined && hidden >= event.critical_threshold) {
       const success = event.success_outcome
       const boosted: Record<string, number> = {}
       for (const [key, value] of Object.entries(success.resource_deltas)) boosted[key] = value * 2
-      this.applyDeltas(boosted)
+      this.applyResourceDeltas(boosted)
       outcomeText = `Critical success! ${success.text}`
     } else if (hidden >= event.difficulty) {
-      this.applyDeltas(event.success_outcome.resource_deltas)
+      this.applyResourceDeltas(event.success_outcome.resource_deltas)
       outcomeText = `Success. ${event.success_outcome.text}`
     } else {
-      this.applyDeltas(event.fail_outcome.resource_deltas)
+      this.applyResourceDeltas(event.fail_outcome.resource_deltas)
       outcomeText = `Failure. ${event.fail_outcome.text}`
     }
     this.emit({ kind: 'outcome', text: outcomeText })
 
-    this.state.drawPile.push(...this.state.activeZone)
-    this.state.activeZone = []
+    this.state.drawPile.push(...this.state.tableau)
+    this.state.tableau = []
     this.state.currentEvent = null
     this.state.turnCount += 1
-    this.drawToHandSize()
+    this.drawCards(this.state.initialHandSize)
+
+    if (this.isAnyResourceDepleted()) {
+      this.endGame('a vital resource was depleted')
+      return
+    }
 
     const interval = this.state.narrativeInterventionInterval
     if (interval > 0 && this.state.turnCount % interval === 0) {
@@ -152,39 +107,92 @@ export class GameEngine {
       if (narrative) {
         this.state.pendingNarrativeCard = { ...narrative, id: `${narrative.id}-t${this.state.turnCount}` }
         this.state.phase = 'narrative-intervention'
+        this.emitPersist()
         return
       }
     }
     this.state.phase = 'movement'
+    this.emitPersist()
   }
 
   placeNarrativeCard(target: Coord): void {
     if (this.state.phase !== 'narrative-intervention') return
     const card = this.state.pendingNarrativeCard
     if (!card) return
-    const cell = this.cellAt(target)
+    const cell = this.findCellAt(target)
     if (!cell) return
     if (card.overwrite_terrain) cell.terrain = card.overwrite_terrain
     if (card.overwrite_event_id !== undefined) cell.event_id = card.overwrite_event_id ?? null
     cell.is_revealed = true
     this.state.pendingNarrativeCard = null
     this.state.phase = 'movement'
-    this.emit({ kind: 'map-changed' })
+    this.emitPersist()
   }
 
-  endGame(reason: string): void {
+  // Subscribe to engine events. Returns an unsubscribe function.
+  onEvent(listener: (event: EngineEvent) => void): () => void {
+    this.listeners.push(listener)
+    return () => {
+      const index = this.listeners.indexOf(listener)
+      if (index >= 0) this.listeners.splice(index, 1)
+    }
+  }
+
+  // One-time setup for a freshly mapped scenario: shuffle the draw pile, deal the
+  // opening hand, reveal the starting cell. Asks the host to reset (clear
+  // notifications) and persist the fresh game.
+  private initialize(): void {
+    const rng = createRng(Date.now() & 0xffffff)
+    this.state.drawPile = rng.shuffle(this.state.drawPile)
+    this.drawCards(this.state.initialHandSize)
+    const startCell = this.findCellAt(this.state.position)
+    if (startCell) startCell.is_revealed = true
+    this.state.initialized = true
+    this.emit({ kind: 'reset' })
+    this.emitPersist()
+  }
+
+  private endGame(reason: string): void {
     if (this.state.phase === 'game-over') return
     this.state.phase = 'game-over'
     this.emit({ kind: 'game-over', reason })
+    this.emitPersist()
   }
 
-  adjacencyHints(): Set<string> {
-    const hints = new Set<string>()
-    for (const cell of this.state.cells) {
-      if (isAdjacent(this.state.position, { q: cell.q, r: cell.r })) {
-        hints.add(coordKey({ q: cell.q, r: cell.r }))
-      }
+  private emit(event: EngineEvent): void {
+    for (const listener of this.listeners) listener(event)
+  }
+
+  private emitPersist(): void {
+    this.emit({ kind: 'persist', state: this.state })
+  }
+
+  private isAnyResourceDepleted(): boolean {
+    return Object.values(this.state.resources).some((value) => value <= 0)
+  }
+
+  private drawCards(count: number): void {
+    const max = this.state.initialHandSize
+    let drawn = 0
+    while (drawn < count && this.state.hand.length < max && this.state.drawPile.length > 0) {
+      const card = this.state.drawPile.shift()
+      if (card) this.state.hand.push(card)
+      drawn += 1
     }
-    return hints
+  }
+
+  private findCellAt(coord: Coord): HexCell | undefined {
+    return this.state.cells.find((cell) => cell.q === coord.q && cell.r === coord.r)
+  }
+
+  private applyResourceDeltas(deltas: Record<string, number>): void {
+    for (const [key, delta] of Object.entries(deltas)) {
+      const previous = this.state.resources[key] ?? 0
+      this.state.resources[key] = previous + delta
+    }
+  }
+
+  private sumTableauWeight(): number {
+    return this.state.tableau.reduce((sum, card) => sum + (card.weight ?? 0), 0)
   }
 }

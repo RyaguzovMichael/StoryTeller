@@ -63,6 +63,7 @@ const listStyle = computed(() => ({
         :model-value="modelValue"
         :item-key="(c: Card) => c.id"
         :group="{ name: 'cards', pull: !disabled, put: !disabled }"
+        :sort="false"
         :disabled="disabled"
         class="card-list"
         :style="listStyle"

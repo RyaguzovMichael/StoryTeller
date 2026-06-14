@@ -1,4 +1,4 @@
 export type { GamePhase } from './phase'
-export type { GameState, SavedGame } from './gameState'
+export type { GameState } from './gameState'
 export { createEmptyState } from './gameState'
-export type { GameEffect } from './effect'
+export type { EngineEvent } from './engineEvent'

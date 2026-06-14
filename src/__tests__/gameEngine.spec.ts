@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { GameEngine } from '@/engine/gameEngine'
 import { createGameState } from '@/engine/createGameState'
 import { createEmptyState } from '@/engine/types/gameState'
+import type { EngineEvent } from '@/engine/types/gameState'
 import type { Scenario } from '@/engine/types/scenario'
 
 function makeScenario(): Scenario {
@@ -36,52 +37,150 @@ function makeScenario(): Scenario {
   }
 }
 
+// Builds an initialized engine and records every event it emits.
+function setup() {
+  const state = createEmptyState()
+  const engine = new GameEngine(state)
+  const events: EngineEvent[] = []
+  engine.onEvent((event) => events.push(event))
+  engine.load(createGameState(makeScenario()))
+  return { engine, state, events }
+}
+
 describe('GameEngine.load', () => {
   it('runs one-time setup for a freshly mapped scenario', () => {
-    const state = createEmptyState()
-    const engine = new GameEngine(state)
-
-    engine.load(createGameState(makeScenario()))
+    const { state, events } = setup()
 
     expect(state.initialized).toBe(true)
     expect(state.hand).toHaveLength(2)
     expect(state.drawPile).toHaveLength(1)
     expect(state.cells.find((c) => c.q === 0 && c.r === 0)?.is_revealed).toBe(true)
-    expect(state.effects.some((e) => e.kind === 'reset')).toBe(true)
+    expect(events.some((e) => e.kind === 'reset')).toBe(true)
+    expect(events.some((e) => e.kind === 'persist')).toBe(true)
   })
 
-  it('loads an already-initialized save untouched (no re-deal)', () => {
+  it('loads an already-initialized save untouched (no re-deal, no events)', () => {
     const fresh = createEmptyState()
     new GameEngine(fresh).load(createGameState(makeScenario()))
-    const saved = JSON.parse(JSON.stringify({ ...fresh, effects: undefined }))
-    saved.hand = [] // tamper: a real save would keep its own hand; prove no re-deal
+    const saved = JSON.parse(JSON.stringify(fresh))
+    saved.hand = [] // tamper: prove no re-deal
 
     const target = createEmptyState()
     const engine = new GameEngine(target)
-    engine.load({ ...saved, effects: [] })
+    const events: EngineEvent[] = []
+    engine.onEvent((event) => events.push(event))
+    engine.load(saved)
 
     expect(target.initialized).toBe(true)
     expect(target.hand).toEqual([]) // setup did not run again
-    expect(target.effects).toEqual([])
+    expect(events).toEqual([]) // already initialized → no setup signals
   })
 })
 
-describe('GameEngine.snapshot', () => {
-  it('round-trips state without the transient effect queue', () => {
-    const source = createEmptyState()
-    const sourceEngine = new GameEngine(source)
-    sourceEngine.load(createGameState(makeScenario()))
-    sourceEngine.selectHex({ q: 1, r: 0 })
+describe('GameEngine.move', () => {
+  it('reveals the target, opens its event, and asks to persist', () => {
+    const { engine, state, events } = setup()
+    events.length = 0
 
-    const snapshot = sourceEngine.snapshot()
-    expect(snapshot).not.toHaveProperty('effects')
-    expect(snapshot.currentEvent?.id).toBe('ev-1')
+    engine.move({ q: 1, r: 0 })
 
-    const target = createEmptyState()
-    new GameEngine(target).load({ ...snapshot, effects: [] })
+    expect(state.position).toEqual({ q: 1, r: 0 })
+    expect(state.phase).toBe('draw')
+    expect(state.currentEvent?.id).toBe('ev-1')
+    expect(state.cells.find((c) => c.q === 1 && c.r === 0)?.is_revealed).toBe(true)
+    expect(events.some((e) => e.kind === 'persist')).toBe(true)
+  })
 
-    expect(target.phase).toBe('draw')
-    expect(target.currentEvent?.id).toBe('ev-1')
-    expect(target.position).toEqual({ q: 1, r: 0 })
+  it('is ignored outside the movement phase', () => {
+    const { engine, state } = setup()
+    engine.move({ q: 1, r: 0 }) // now in draw phase
+    engine.move({ q: 0, r: 0 })
+    expect(state.position).toEqual({ q: 1, r: 0 })
+  })
+})
+
+describe('GameEngine.playCard / returnCard', () => {
+  it('moves a card between hand and tableau', () => {
+    const { engine, state } = setup()
+    engine.move({ q: 1, r: 0 })
+    const card = state.hand[0]!
+
+    engine.playCard(card)
+    expect(state.tableau.map((c) => c.id)).toContain(card.id)
+    expect(state.hand.map((c) => c.id)).not.toContain(card.id)
+
+    engine.returnCard(card)
+    expect(state.hand.map((c) => c.id)).toContain(card.id)
+    expect(state.tableau.map((c) => c.id)).not.toContain(card.id)
+  })
+
+  it('ignores a card that is not in hand', () => {
+    const { engine, state } = setup()
+    engine.move({ q: 1, r: 0 })
+    engine.playCard({ id: 'nope', text: 'x', type: 'standard', weight: 0 })
+    expect(state.tableau).toHaveLength(0)
+  })
+})
+
+describe('GameEngine.confirmPlay', () => {
+  it('applies the success outcome and returns to movement', () => {
+    const { engine, state, events } = setup()
+    engine.move({ q: 1, r: 0 })
+    for (const card of state.hand.slice()) engine.playCard(card) // sum >= difficulty 2
+    events.length = 0
+
+    engine.confirmPlay()
+
+    expect(state.resources.gold).toBe(6) // 5 + success(+1)
+    expect(state.tableau).toEqual([])
+    expect(state.phase).toBe('movement')
+    expect(events.some((e) => e.kind === 'outcome')).toBe(true)
+    expect(events.some((e) => e.kind === 'persist')).toBe(true)
+  })
+
+  it('ends the game when a resource is depleted', () => {
+    const { engine, state, events } = setup()
+    engine.move({ q: 1, r: 0 })
+    state.resources.gold = 1 // next failure (-1) will deplete it
+    events.length = 0
+
+    engine.confirmPlay() // empty tableau → failure
+
+    expect(state.resources.gold).toBe(0)
+    expect(state.phase).toBe('game-over')
+    expect(events.some((e) => e.kind === 'game-over')).toBe(true)
+  })
+
+  it('never refills the hand beyond the maximum', () => {
+    const { engine, state } = setup()
+    engine.move({ q: 1, r: 0 })
+    for (const card of state.hand.slice()) engine.playCard(card)
+    engine.confirmPlay()
+    expect(state.hand.length).toBeLessThanOrEqual(2)
+  })
+})
+
+describe('GameEngine.onEvent', () => {
+  it('hands a persist event carrying the current state', () => {
+    const { engine, state, events } = setup()
+    engine.move({ q: 1, r: 0 })
+
+    const persistEvents = events.filter(
+      (e) => e.kind === 'persist',
+    ) as Extract<EngineEvent, { kind: 'persist' }>[]
+    const persist = persistEvents[persistEvents.length - 1]
+    expect(persist).toBeDefined()
+    expect(persist?.state).toBe(state)
+    expect(persist?.state.position).toEqual({ q: 1, r: 0 })
+  })
+
+  it('stops delivering after unsubscribe', () => {
+    const { engine, events } = setup()
+    const seen: EngineEvent[] = []
+    const unsubscribe = engine.onEvent((event) => seen.push(event))
+    unsubscribe()
+    events.length = 0
+    engine.move({ q: 1, r: 0 })
+    expect(seen).toHaveLength(0)
   })
 })
