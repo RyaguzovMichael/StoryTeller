@@ -2,6 +2,9 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+@docs/DEVELOPMENT.md covers code style conventions and the current engine/game
+architecture in detail — read it alongside this file.
+
 ## Commands
 
 **Always use the `make` targets — not the raw `pnpm` scripts.** The `Makefile`
@@ -67,6 +70,13 @@ not against it:
    them as iteration continues, and don't resist revisions or try to lock down a
    full target architecture up front.
 
+7. **Branch and commit per plan.** Once a plan is approved, create a new branch
+   for it before the first edit — implementation does not land directly on
+   `master`. Commit after each completed stage of the plan (e.g. "types",
+   "engine", "Vue layer"), not as one big commit at the end. Each commit message
+   is a single concise subject line (~5-6 words, Conventional Commits prefix is
+   fine) plus the `Co-Authored-By` trailer — no body unless asked.
+
 ## Architecture
 
 This is a **Vue 3 + TypeScript + Vite** SPA — a browser-based card narrative engine called "Storyteller."
@@ -78,21 +88,18 @@ portable game core (`engine/`) that everything else orbits.
 
 ```
 engine/            Portable game core — pure TS, NO Vue/Pinia/notifications/persistence.
-                   Intended for reuse in another game.
-  gameEngine.ts      `class GameEngine`: state machine for the 4-phase loop. Mutates
-                     an injected GameState; emits GameEffects instead of doing I/O.
+                   Intended for reuse in another game. See docs/DEVELOPMENT.md
+                   for the engine/game boundary in detail.
+  gameEngine.ts      `class GameEngine`: state machine for the 4-phase loop.
   hexGrid.ts         Pure axial-coordinate math (adjacency, distance, radius).
   rng.ts             Deterministic seeded RNG.
   scenarioGenerator.ts  Procedural Scenario generator.
   types/
     scenario/        Authored data contract, one type per file + barrel index.ts
                      (coord, hexCell, card, event, scenario).
-    gameState/       Runtime state types (phase, gameState, effect) + barrel index.ts.
-game/              Vue layer around the engine:
-  useGame.ts         Thin Pinia store = reactive state provider only. Exposes
-                     `engine` + derived refs; NO actions. Drive play via game.engine.*.
-  useGameEffects.ts  Observer: drains engine effects -> notifications + persistence.
-  useEndGameManager.ts  Observer: watches resources -> game.engine.endGame(...).
+    gameState/       Runtime state types (phase, gameState, engineEvent) + barrel index.ts.
+game/              Vue layer around the engine: useGame (Pinia store), and the
+                   useGameEffects/useEndGameManager observers.
 editor/            Editor-side logic (mapTransforms.ts).
 views/             Route-level pages: GameView.vue, EditorView.vue.
 components/        Shared presentational UI, subdivided by role:
@@ -104,12 +111,6 @@ notifications/     App-feedback store + its types (notificationStore.ts, types.t
 infrastructure/    Persistence layer (storage.ts — localStorage repository).
 router.ts          Routes (flat file, not a folder).
 ```
-
-**Engine is Vue-free.** The engine performs no side effects: it appends a
-`GameEffect` (`outcome` / `game-over` / `map-changed` / `reset`) to `state.effects`,
-and `useGameEffects` drains the queue to push notifications and persist. The
-reactivity bridge is `useGame`: it builds `reactive(state)` and hands it to the
-engine, which mutates it unaware of Vue (a plain object works in tests/Node).
 
 ### Planned architecture (per docs/DESIGN-DOCUMENT.md and docs/TASK.md)
 
@@ -131,7 +132,9 @@ The engine is a **Universal Card Narrative Engine** where stories are configured
 - `MapConfig` — array of hex cells with axial coordinates, terrain tag, `event_id`, `is_revealed`
 - `EventPool` — events with hidden difficulty, `success_outcome`, `fail_outcome` (resource deltas)
 - `PlayerDeck` — cards with id, narrative text, type (`standard` | `narrative`), hidden `weight`
-- `GameState` — resources, current phase, hand, position, hidden counter `$S`
+- `GameState` — resources, current phase, hand/tableau/drawPile, position, current event;
+  the hidden check total is computed on demand from tableau card weights
+  (`sumTableauWeight`), not stored as a `$S` field
 - `Scenario` — `{ id, metadata, mapData, eventsData, playerDeck, ... }` (the persisted story JSON)
 
 ### Rendering
