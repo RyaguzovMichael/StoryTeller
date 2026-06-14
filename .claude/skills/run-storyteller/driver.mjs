@@ -16,7 +16,6 @@
 // Screenshots are written to <out-dir>/<name>.
 
 import { chromium } from 'playwright'
-import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const [, , baseUrl, outDir, scriptPath] = process.argv
