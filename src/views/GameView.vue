@@ -9,11 +9,13 @@ import ResourceBar from '@/components/hud/ResourceBar.vue'
 import { useGame } from '@/game/useGame'
 import { useEndGameManager } from '@/game/useEndGameManager'
 import { useGameEffects } from '@/game/useGameEffects'
-import { loadOrCreateScenario } from '@/infrastructure/storage'
+import { clearGame, loadGame, loadOrCreateScenario } from '@/infrastructure/storage'
+import { createGameState } from '@/engine/createGameState'
 import type { Card, Coord } from '@/engine/types/scenario'
 
 const game = useGame()
 const {
+  initialized,
   phase,
   resources,
   position,
@@ -22,16 +24,31 @@ const {
   activeZone,
   pendingNarrativeCard,
   currentEvent,
-  isGameOver,
 } = storeToRefs(game)
 
 useEndGameManager()
 useGameEffects()
 
 onMounted(() => {
+  // Resume an in-progress save for this story if one exists; otherwise (no save,
+  // a save for another story, or a finished game) map the scenario into a fresh
+  // game. The engine performs the one-time setup on the fresh state.
   const scenario = loadOrCreateScenario()
-  game.engine.initFromScenario(scenario)
+  const saved = loadGame()
+  if (saved && saved.storyId === scenario.id && saved.phase !== 'game-over') {
+    game.engine.load({ ...saved, effects: [] })
+  } else {
+    game.engine.load(createGameState(scenario))
+  }
 })
+
+// Discards the current save and starts the story over from its definition.
+function onNewGame(): void {
+  clearGame()
+  game.engine.load(createGameState(loadOrCreateScenario()))
+}
+
+const gameOver = computed<boolean>(() => phase.value === 'game-over')
 
 const adjacencyHints = computed<Set<string>>(() => game.engine.adjacencyHints())
 
@@ -40,7 +57,7 @@ const eventOpen = computed<boolean>(
 )
 
 const movementHint = computed<string>(() => {
-  if (isGameOver.value) return 'The journey ends here.'
+  if (gameOver.value) return 'The journey ends here.'
   if (phase.value === 'narrative-intervention')
     return 'A narrative card has appeared — drop it onto any hex.'
   if (phase.value === 'movement') return 'Choose an adjacent hex to move.'
@@ -64,7 +81,7 @@ function onConfirm(): void {
 }
 
 const dragLocked = computed<boolean>(
-  () => phase.value !== 'draw' || isGameOver.value,
+  () => phase.value !== 'draw' || gameOver.value,
 )
 </script>
 
@@ -75,11 +92,15 @@ const dragLocked = computed<boolean>(
         <h1>Storyteller</h1>
         <nav>
           <RouterLink to="/editor">Editor</RouterLink>
+          <button type="button" class="new-game" @click="onNewGame">New game</button>
         </nav>
       </div>
-      <ResourceBar :resources="resources" />
+      <ResourceBar v-if="initialized" :resources="resources" />
     </header>
 
+    <p v-if="!initialized" class="loading-hint">Loading story…</p>
+
+    <template v-else>
     <section class="board-area">
       <div class="board-frame">
         <HexGrid
@@ -98,7 +119,7 @@ const dragLocked = computed<boolean>(
             :text="currentEvent!.text"
             :active-zone="activeZone"
             :can-confirm="true"
-            :disabled="isGameOver"
+            :disabled="gameOver"
             @update:active-zone="onActiveUpdate"
             @confirm="onConfirm"
           />
@@ -120,6 +141,7 @@ const dragLocked = computed<boolean>(
         @update:model-value="onHandUpdate"
       />
     </div>
+    </template>
   </main>
 </template>
 
@@ -158,12 +180,30 @@ const dragLocked = computed<boolean>(
   color: #f4ead2;
   white-space: nowrap;
 }
+.top-bar nav {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
 .top-bar nav :deep(a) {
   color: #d9c084;
   text-decoration: none;
   border-bottom: 1px dashed #806340;
   padding-bottom: 1px;
   font-size: 0.9rem;
+}
+.top-bar nav .new-game {
+  background: none;
+  border: none;
+  border-bottom: 1px dashed #806340;
+  padding: 0 0 1px;
+  color: #d9c084;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.top-bar nav .new-game:hover {
+  color: #fff3cf;
 }
 .top-bar nav :deep(a:hover) {
   color: #fff3cf;
@@ -195,6 +235,15 @@ const dragLocked = computed<boolean>(
     0 10px 30px rgba(0, 0, 0, 0.45);
   overflow: hidden;
   min-height: 0;
+}
+.loading-hint {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  color: #d9c084;
+  letter-spacing: 0.04em;
 }
 .movement-hint {
   position: absolute;

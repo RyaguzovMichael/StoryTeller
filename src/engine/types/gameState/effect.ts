@@ -5,4 +5,5 @@ export type GameEffect =
   | { kind: 'outcome'; text: string }
   | { kind: 'game-over'; reason: string }
   | { kind: 'map-changed' }
+  | { kind: 'player-move' }
   | { kind: 'reset' }

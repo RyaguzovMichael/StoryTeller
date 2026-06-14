@@ -5,7 +5,7 @@
 import { watch } from 'vue'
 import { useGame } from '@/game/useGame'
 import { useNotificationStore } from '@/notifications/notificationStore'
-import { saveScenario } from '@/infrastructure/storage'
+import { saveGame } from '@/infrastructure/storage'
 
 export function useGameEffects(): void {
   const game = useGame()
@@ -23,14 +23,13 @@ export function useGameEffects(): void {
           case 'game-over':
             notifications.push(`Game over: ${effect.reason}.`, 'game-over')
             break
-          case 'map-changed':
-            if (game.scenario) saveScenario(game.scenario)
-            break
           case 'reset':
             notifications.clear()
             break
         }
       }
+      // Any drained effect means the state changed — persist the new snapshot.
+      saveGame(game.engine.snapshot())
     },
   )
 }

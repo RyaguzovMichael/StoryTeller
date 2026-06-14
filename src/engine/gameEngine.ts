@@ -1,5 +1,7 @@
 // Pure, framework-agnostic game core. No Vue, no Pinia, no notifications, no
-// persistence — the engine only owns GameState and applies the rules to it.
+// persistence — and no knowledge of Scenario. The engine is handed a ready
+// GameState (a loaded save, or one mapped from a scenario by createGameState)
+// and only applies the rules to it.
 //
 // Reactivity bridge: the engine mutates the state object it is handed. In the
 // Vue app the wrapper (game/useGame.ts) passes a `reactive()` object, so every
@@ -10,29 +12,44 @@
 // Side effects (notifications, saving) are never performed here. The engine
 // appends a GameEffect to `state.effects`; a host observer drains and applies
 // them (see game/useGameEffects.ts). That keeps the core dependency-free.
-import type { Card, Coord, GameEvent, HexCell, Scenario } from '@/engine/types/scenario'
-import type { GameEffect, GameState } from '@/engine/types/gameState'
+import type { Card, Coord, HexCell } from '@/engine/types/scenario'
+import type { GameEffect, GameState, SavedGame } from '@/engine/types/gameState'
 import { coordKey, isAdjacent } from '@/engine/hexGrid'
 import { createRng } from '@/engine/rng'
 
 export class GameEngine {
   constructor(private readonly state: GameState) {}
 
-  get cells(): HexCell[] {
-    return this.state.scenario?.mapData.cells ?? []
+  // Single entry point for state. Accepts anything ready to play — a freshly
+  // mapped scenario or a restored save — and hydrates the engine's reactive
+  // state object in place (it must stay the same object the store handed out).
+  // A fresh scenario mapping arrives uninitialized and gets the one-time setup;
+  // a save is already initialized and is loaded untouched.
+  load(state: GameState): void {
+    Object.assign(this.state, state)
+    if (!this.state.initialized) this.initialize()
   }
 
-  get currentEvent(): GameEvent | null {
-    const scenario = this.state.scenario
-    if (!scenario || !this.state.currentEventId) return null
-    return scenario.eventsData.find((e) => e.id === this.state.currentEventId) ?? null
+  // One-time setup for a freshly mapped scenario: shuffle the draw pile, deal the
+  // opening hand, reveal the starting cell. Marks the state initialized and asks
+  // the host to reset (clears notifications, persists the fresh game).
+  private initialize(): void {
+    const rng = createRng(Date.now() & 0xffffff)
+    this.state.drawPile = rng.shuffle(this.state.drawPile)
+    this.drawToHandSize()
+    const startCell = this.cellAt(this.state.position)
+    if (startCell) startCell.is_revealed = true
+    this.state.initialized = true
+    this.emit({ kind: 'reset' })
   }
 
-  get isGameOver(): boolean {
-    return this.state.phase === 'game-over'
+  // A persistable snapshot of the current game (without the transient effects).
+  snapshot(): SavedGame {
+    const { effects: _effects, ...rest } = this.state
+    return JSON.parse(JSON.stringify(rest)) as SavedGame
   }
 
-  get hiddenS(): number {
+  private sumActiveZoneWeight(): number {
     return this.state.activeZone.reduce((sum, card) => sum + (card.weight ?? 0), 0)
   }
 
@@ -48,39 +65,14 @@ export class GameEngine {
   }
 
   private cellAt(coord: Coord): HexCell | undefined {
-    return this.cells.find((cell) => cell.q === coord.q && cell.r === coord.r)
+    return this.state.cells.find((cell) => cell.q === coord.q && cell.r === coord.r)
   }
 
   private drawToHandSize(): void {
-    const target = this.state.scenario?.initial_hand_size ?? 0
-    while (this.state.hand.length < target && this.state.drawPile.length > 0) {
+    while (this.state.hand.length < this.state.initialHandSize && this.state.drawPile.length > 0) {
       const card = this.state.drawPile.shift()
       if (card) this.state.hand.push(card)
     }
-  }
-
-  initFromScenario(source: Scenario): void {
-    const state = this.state
-    state.scenario = JSON.parse(JSON.stringify(source)) as Scenario
-    state.phase = 'movement'
-    state.resources = { ...source.initial_resources }
-    state.position = { ...source.starting_position }
-    state.activeZone = []
-    state.currentEventId = null
-    state.pendingNarrativeCard = null
-    state.turnCount = 0
-    state.effects = []
-
-    const rng = createRng(Date.now() & 0xffffff)
-    const standards = source.playerDeck.filter((c) => c.type === 'standard')
-    state.drawPile = rng.shuffle(standards)
-    state.hand = []
-    this.drawToHandSize()
-
-    const startCell = this.cellAt(state.position)
-    if (startCell) startCell.is_revealed = true
-
-    this.emit({ kind: 'reset' })
   }
 
   selectHex(target: Coord): void {
@@ -91,11 +83,12 @@ export class GameEngine {
     this.state.position = { q: target.q, r: target.r }
     cell.is_revealed = true
     if (cell.event_id) {
-      this.state.currentEventId = cell.event_id
+      this.state.currentEvent = this.state.eventsById[cell.event_id] ?? null
       this.state.phase = 'draw'
     } else {
-      this.state.currentEventId = null
+      this.state.currentEvent = null
     }
+    this.emit({ kind: 'player-move' })
   }
 
   playCard(cardId: string): void {
@@ -123,14 +116,14 @@ export class GameEngine {
 
   confirmPlay(): void {
     if (this.state.phase !== 'draw') return
-    const event = this.currentEvent
+    const event = this.state.currentEvent
     if (!event) {
       this.state.activeZone = []
       this.state.phase = 'movement'
       return
     }
 
-    const hidden = this.hiddenS
+    const hidden = this.sumActiveZoneWeight()
     let outcomeText: string
     if (event.critical_threshold !== undefined && hidden >= event.critical_threshold) {
       const success = event.success_outcome
@@ -149,13 +142,13 @@ export class GameEngine {
 
     this.state.drawPile.push(...this.state.activeZone)
     this.state.activeZone = []
-    this.state.currentEventId = null
+    this.state.currentEvent = null
     this.state.turnCount += 1
     this.drawToHandSize()
 
-    const interval = this.state.scenario?.narrative_intervention_interval ?? 0
-    if (interval > 0 && this.state.turnCount % interval === 0 && this.state.scenario) {
-      const narrative = this.state.scenario.playerDeck.find((c) => c.type === 'narrative')
+    const interval = this.state.narrativeInterventionInterval
+    if (interval > 0 && this.state.turnCount % interval === 0) {
+      const narrative = this.state.narrativeCardTemplates[0]
       if (narrative) {
         this.state.pendingNarrativeCard = { ...narrative, id: `${narrative.id}-t${this.state.turnCount}` }
         this.state.phase = 'narrative-intervention'
@@ -168,7 +161,7 @@ export class GameEngine {
   placeNarrativeCard(target: Coord): void {
     if (this.state.phase !== 'narrative-intervention') return
     const card = this.state.pendingNarrativeCard
-    if (!card || !this.state.scenario) return
+    if (!card) return
     const cell = this.cellAt(target)
     if (!cell) return
     if (card.overwrite_terrain) cell.terrain = card.overwrite_terrain
@@ -187,7 +180,7 @@ export class GameEngine {
 
   adjacencyHints(): Set<string> {
     const hints = new Set<string>()
-    for (const cell of this.cells) {
+    for (const cell of this.state.cells) {
       if (isAdjacent(this.state.position, { q: cell.q, r: cell.r })) {
         hints.add(coordKey({ q: cell.q, r: cell.r }))
       }

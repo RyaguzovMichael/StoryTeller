@@ -9,7 +9,7 @@ export function useEndGameManager(): void {
   watch(
     () => Object.values(game.resources),
     (values) => {
-      if (game.isGameOver) return
+      if (game.phase === 'game-over') return
       if (values.some((value) => value <= 0)) {
         game.engine.endGame('a vital resource was depleted')
       }
