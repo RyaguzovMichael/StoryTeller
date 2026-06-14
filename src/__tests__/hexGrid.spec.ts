@@ -6,6 +6,7 @@ import {
   hexDistance,
   neighborsOf,
   isAdjacent,
+  neighbourCoordKeys,
   enumerateRadius,
   recenterCoords,
 } from '@/engine/hexGrid'
@@ -121,6 +122,29 @@ describe('isAdjacent', () => {
     for (const neighbor of neighborsOf(center)) {
       expect(isAdjacent(center, neighbor)).toBe(true)
     }
+  })
+})
+
+describe('neighbourCoordKeys', () => {
+  it('returns keys only for cells adjacent to the position', () => {
+    const cells: Coord[] = [
+      { q: 1, r: 0 }, // neighbour
+      { q: 0, r: 1 }, // neighbour
+      { q: 2, r: 0 }, // two steps away
+      { q: 5, r: 5 }, // far
+    ]
+    const keys = neighbourCoordKeys({ q: 0, r: 0 }, cells)
+    expect(keys).toEqual(new Set(['1,0', '0,1']))
+  })
+
+  it('excludes the position itself', () => {
+    const keys = neighbourCoordKeys({ q: 0, r: 0 }, [{ q: 0, r: 0 }, { q: 1, r: 0 }])
+    expect(keys.has('0,0')).toBe(false)
+    expect(keys.has('1,0')).toBe(true)
+  })
+
+  it('is empty when no cell is adjacent', () => {
+    expect(neighbourCoordKeys({ q: 0, r: 0 }, [{ q: 4, r: 4 }])).toEqual(new Set())
   })
 })
 

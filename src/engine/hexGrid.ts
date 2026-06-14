@@ -27,6 +27,14 @@ export function isAdjacent(a: Coord, b: Coord): boolean {
   return hexDistance(a, b) === 1
 }
 
+export function neighbourCoordKeys(position: Coord, cells: readonly Coord[]): Set<string> {
+  const keys = new Set<string>()
+  for (const cell of cells) {
+    if (isAdjacent(position, cell)) keys.add(coordKey(cell))
+  }
+  return keys
+}
+
 export function enumerateRadius(radius: number): Coord[] {
   const cells: Coord[] = []
   for (let q = -radius; q <= radius; q++) {

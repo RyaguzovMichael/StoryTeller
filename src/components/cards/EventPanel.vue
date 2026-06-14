@@ -4,13 +4,13 @@ import type { Card } from '@/engine/types/scenario'
 
 defineProps<{
   text: string
-  activeZone: Card[]
+  tableau: Card[]
   canConfirm: boolean
   disabled?: boolean
 }>()
 
 defineEmits<{
-  (e: 'update:activeZone', value: Card[]): void
+  (e: 'update:tableau', value: Card[]): void
   (e: 'confirm'): void
 }>()
 </script>
@@ -23,15 +23,16 @@ defineEmits<{
 
     <p class="event-text">{{ text }}</p>
 
-    <div class="event-drop" :class="{ empty: activeZone.length === 0 }">
+    <div class="event-drop" :class="{ empty: tableau.length === 0 }">
       <draggable
-        :model-value="activeZone"
+        :model-value="tableau"
         :item-key="(c: Card) => c.id"
         :group="{ name: 'cards', pull: !disabled, put: !disabled }"
+        :sort="false"
         :disabled="disabled"
         class="drop-list"
         ghost-class="card-ghost"
-        @update:model-value="(v: Card[]) => $emit('update:activeZone', v)"
+        @update:model-value="(v: Card[]) => $emit('update:tableau', v)"
       >
         <template #item="{ element }">
           <article class="card played" :data-card-id="element.id">
@@ -39,7 +40,7 @@ defineEmits<{
           </article>
         </template>
       </draggable>
-      <p v-if="activeZone.length === 0" class="drop-hint">
+      <p v-if="tableau.length === 0" class="drop-hint">
         Drop a card here to play it.
       </p>
     </div>
