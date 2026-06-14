@@ -27,6 +27,46 @@ apply them. Run a single unit test file directly with vitest when needed:
 pnpm test:unit src/__tests__/hexGrid.spec.ts
 ```
 
+## Working with the maintainer (planning & verification)
+
+The maintainer oversees this project at the **architecture level** and does not
+read every line of implementation. The architecture is being reworked
+element-by-element from the original MVP, so it is intentionally **iterative and
+emergent** — earlier decisions get revised as later pieces land. Work with that,
+not against it:
+
+1. **Plans are contracts, not prose.** When proposing a plan, express it as
+   types, function signatures, and module boundaries — the surface the maintainer
+   actually reviews. Avoid paragraphs describing behavior; show the shape. A
+   design decision buried in approved prose will resurface as a rejection during
+   coding, which is expensive.
+
+2. **Skeleton first, then bodies.** For any non-trivial change, lay down the
+   files with interfaces/signatures and stubbed bodies for review *before*
+   filling in implementation. Rejecting the shape costs one line; rejecting a
+   finished file wastes the whole write.
+
+3. **Contracts get tests before implementation.** When the plan settles on a
+   contract (a type / signature / module boundary), write its tests *before*
+   implementing the bodies. The plan must state explicitly **which contracts get
+   tests and which don't** — don't blanket-test everything, decide per contract.
+
+4. **Verification is usually the maintainer's, done by hand.** Tests + type-check
+   + lint passing is Claude's bar for "done"; the maintainer prefers to re-check
+   runtime behavior manually in the browser (to save tokens). Do **not** run the
+   `run-storyteller` skill every time — only when explicitly asked, or when a
+   change genuinely can't be trusted without it.
+
+5. **Fact-check claims about the code.** The maintainer may not have read the
+   relevant implementation. If they assert something about how the code behaves,
+   verify it against the actual source and correct them *before* acting on a
+   possibly-wrong premise — even when the proposed direction is otherwise fine.
+
+6. **Don't over-specify the architecture.** Settled decisions are captured in
+   Claude's memory as the *current* state of an evolving design; expect to update
+   them as iteration continues, and don't resist revisions or try to lock down a
+   full target architecture up front.
+
 ## Architecture
 
 This is a **Vue 3 + TypeScript + Vite** SPA — a browser-based card narrative engine called "Storyteller."
