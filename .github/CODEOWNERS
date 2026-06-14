@@ -1,0 +1,8 @@
+# Code owners for StoryTeller.
+# Syntax: https://docs.github.com/articles/about-code-owners
+# Each line maps a path pattern to one or more owners; the LAST matching
+# pattern wins. Listed owners are requested for review automatically on any
+# PR that touches a matching path.
+
+# Default owner for everything in the repo.
+*       @RyaguzovMichael

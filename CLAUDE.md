@@ -27,9 +27,89 @@ apply them. Run a single unit test file directly with vitest when needed:
 pnpm test:unit src/__tests__/hexGrid.spec.ts
 ```
 
+## Working with the maintainer (planning & verification)
+
+The maintainer oversees this project at the **architecture level** and does not
+read every line of implementation. The architecture is being reworked
+element-by-element from the original MVP, so it is intentionally **iterative and
+emergent** — earlier decisions get revised as later pieces land. Work with that,
+not against it:
+
+1. **Plans are contracts, not prose.** When proposing a plan, express it as
+   types, function signatures, and module boundaries — the surface the maintainer
+   actually reviews. Avoid paragraphs describing behavior; show the shape. A
+   design decision buried in approved prose will resurface as a rejection during
+   coding, which is expensive.
+
+2. **Skeleton first, then bodies.** For any non-trivial change, lay down the
+   files with interfaces/signatures and stubbed bodies for review *before*
+   filling in implementation. Rejecting the shape costs one line; rejecting a
+   finished file wastes the whole write.
+
+3. **Contracts get tests before implementation.** When the plan settles on a
+   contract (a type / signature / module boundary), write its tests *before*
+   implementing the bodies. The plan must state explicitly **which contracts get
+   tests and which don't** — don't blanket-test everything, decide per contract.
+
+4. **Verification is usually the maintainer's, done by hand.** Tests + type-check
+   + lint passing is Claude's bar for "done"; the maintainer prefers to re-check
+   runtime behavior manually in the browser (to save tokens). Do **not** run the
+   `run-storyteller` skill every time — only when explicitly asked, or when a
+   change genuinely can't be trusted without it.
+
+5. **Fact-check claims about the code.** The maintainer may not have read the
+   relevant implementation. If they assert something about how the code behaves,
+   verify it against the actual source and correct them *before* acting on a
+   possibly-wrong premise — even when the proposed direction is otherwise fine.
+
+6. **Don't over-specify the architecture.** Settled decisions are captured in
+   Claude's memory as the *current* state of an evolving design; expect to update
+   them as iteration continues, and don't resist revisions or try to lock down a
+   full target architecture up front.
+
 ## Architecture
 
-This is a **Vue 3 + TypeScript + Vite** SPA — a browser-based card narrative engine called "Storyteller." The project is currently at Stage 1 (infrastructure only); game logic has not yet been written.
+This is a **Vue 3 + TypeScript + Vite** SPA — a browser-based card narrative engine called "Storyteller."
+
+### Folder layout (`src/`)
+
+The tree is organized by **role/domain**, not by technical kind. The center is a
+portable game core (`engine/`) that everything else orbits.
+
+```
+engine/            Portable game core — pure TS, NO Vue/Pinia/notifications/persistence.
+                   Intended for reuse in another game.
+  gameEngine.ts      `class GameEngine`: state machine for the 4-phase loop. Mutates
+                     an injected GameState; emits GameEffects instead of doing I/O.
+  hexGrid.ts         Pure axial-coordinate math (adjacency, distance, radius).
+  rng.ts             Deterministic seeded RNG.
+  scenarioGenerator.ts  Procedural Scenario generator.
+  types/
+    scenario/        Authored data contract, one type per file + barrel index.ts
+                     (coord, hexCell, card, event, scenario).
+    gameState/       Runtime state types (phase, gameState, effect) + barrel index.ts.
+game/              Vue layer around the engine:
+  useGame.ts         Thin Pinia store = reactive state provider only. Exposes
+                     `engine` + derived refs; NO actions. Drive play via game.engine.*.
+  useGameEffects.ts  Observer: drains engine effects -> notifications + persistence.
+  useEndGameManager.ts  Observer: watches resources -> game.engine.endGame(...).
+editor/            Editor-side logic (mapTransforms.ts).
+views/             Route-level pages: GameView.vue, EditorView.vue.
+components/        Shared presentational UI, subdivided by role:
+  board/             HexGrid.vue + hexLayout.ts (SVG/pixel geometry — render, not rules).
+  cards/             PlayerHand, EventPanel, NarrativeCardDrop.
+  hud/               ResourceBar.
+  system/            SystemNotificationManager.
+notifications/     App-feedback store + its types (notificationStore.ts, types.ts).
+infrastructure/    Persistence layer (storage.ts — localStorage repository).
+router.ts          Routes (flat file, not a folder).
+```
+
+**Engine is Vue-free.** The engine performs no side effects: it appends a
+`GameEffect` (`outcome` / `game-over` / `map-changed` / `reset`) to `state.effects`,
+and `useGameEffects` drains the queue to push notifications and persist. The
+reactivity bridge is `useGame`: it builds `reactive(state)` and hands it to the
+engine, which mutates it unaware of Vue (a plain object works in tests/Node).
 
 ### Planned architecture (per docs/DESIGN-DOCUMENT.md and docs/TASK.md)
 
@@ -39,7 +119,7 @@ The engine is a **Universal Card Narrative Engine** where stories are configured
 2. **Game Client** (`/game/:id`) — `GameView`: loads story JSON, runs game loop locally in the browser. No network after initial load.
 3. **Browser Editor** (`/editor/:id`) — `EditorView`: visual constructor for authoring stories, exports to JSON.
 
-### Game loop (4 phases, managed by a Pinia state machine)
+### Game loop (4 phases, managed by the `GameEngine` state machine)
 | Phase | Description |
 |-------|-------------|
 | 1 — Basic Movement | Player clicks adjacent hex; engine reads `event_id` from hex and displays narrative text |
@@ -47,17 +127,17 @@ The engine is a **Universal Card Narrative Engine** where stories are configured
 | 3 — Accept Consequences | Engine compares `$S` vs event difficulty; branches to Failure / Success / Critical Success; updates resources |
 | 4 — Story Intervention | Every N turns, player receives a narrative card that must be placed on a hex, permanently rewriting its tag and `event_id` |
 
-### Key data contracts (to be defined in `src/types/`)
-- `MapConfig` — 2D array of hex cells with axial coordinates, terrain tag, `event_id`, `is_revealed`
+### Key data contracts (in `src/engine/types/`)
+- `MapConfig` — array of hex cells with axial coordinates, terrain tag, `event_id`, `is_revealed`
 - `EventPool` — events with hidden difficulty, `success_outcome`, `fail_outcome` (resource deltas)
-- `PlayerDeck` — cards with id, narrative text, type (`standard` | `narrative`)
+- `PlayerDeck` — cards with id, narrative text, type (`standard` | `narrative`), hidden `weight`
 - `GameState` — resources, current phase, hand, position, hidden counter `$S`
-- `Story` — `{ id, metadata: { title, tags, rating }, mapData, eventsData, playerDeck }`
+- `Scenario` — `{ id, metadata, mapData, eventsData, playerDeck, ... }` (the persisted story JSON)
 
 ### Rendering
 - Hex grid: pure **SVG polygons** with axial coordinates — no Canvas, no Pixi.js/Phaser.
 - Cards: Drag-and-Drop via `vuedraggable`.
-- Endings and system notifications use Vue `watch`/`watchEffect` (Observer pattern) via `EndGameManager` and `SystemNotificationManager`.
+- Endings and system notifications use Vue `watch`/`watchEffect` (Observer pattern) via `game/useEndGameManager.ts` and `components/system/SystemNotificationManager.vue`.
 
 ### State and storage
 - **Stage 2** (current target): `localStorage` only, single test scenario.
@@ -65,11 +145,12 @@ The engine is a **Universal Card Narrative Engine** where stories are configured
 - **Stage 4**: Replace `localStorage` with **Supabase** (PostgreSQL metadata + Storage bucket for JSON files). RLS: public SELECT, author-only writes. Game loop stays local after initial JSON download.
 
 ### Routing
-`vue-router` is installed but routes array is empty. Planned routes:
-- `/` → `CatalogView`
-- `/game/:id` → `GameView`
-- `/editor/` → `EditorSelectorView`
-- `/editor/:id` → `EditorView`
+Routes live in `src/router.ts`. Current routes:
+- `/` → redirects to `/game`
+- `/game` → `GameView`
+- `/editor` → `EditorView`
+
+Planned (per design doc): `/` → `CatalogView`, `/game/:id`, `/editor/:id`.
 
 ### CI/CD
 GitHub Actions (`.github/workflows/deploy.yml`) deploys to GitHub Pages on push to `main`. Sets `VITE_BASE_PATH=/<repo-name>/` so Vite's `base` path is correct for subdirectory hosting. Uses `peaceiris/actions-gh-pages`. **Note:** the workflow uses `npm ci` — if switching fully to pnpm, this needs updating.

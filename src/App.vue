@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import SystemNotificationManager from '@/components/SystemNotificationManager.vue'
+import SystemNotificationManager from '@/components/system/SystemNotificationManager.vue'
 </script>
 
 <template>
