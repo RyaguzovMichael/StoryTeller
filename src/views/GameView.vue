@@ -6,12 +6,13 @@ import PlayerHand from '@/components/cards/PlayerHand.vue'
 import EventPanel from '@/components/cards/EventPanel.vue'
 import NarrativeCardDrop from '@/components/cards/NarrativeCardDrop.vue'
 import ResourceBar from '@/components/hud/ResourceBar.vue'
-import { useGameEngine } from '@/engine/gameEngine'
+import { useGame } from '@/game/useGame'
 import { useEndGameManager } from '@/game/useEndGameManager'
+import { useGameEffects } from '@/game/useGameEffects'
 import { loadOrCreateScenario } from '@/infrastructure/storage'
 import type { Card, Coord } from '@/engine/types/scenario'
 
-const game = useGameEngine()
+const game = useGame()
 const {
   phase,
   resources,
@@ -25,13 +26,14 @@ const {
 } = storeToRefs(game)
 
 useEndGameManager()
+useGameEffects()
 
 onMounted(() => {
   const scenario = loadOrCreateScenario()
-  game.initFromScenario(scenario)
+  game.engine.initFromScenario(scenario)
 })
 
-const adjacencyHints = computed<Set<string>>(() => game.adjacencyHints())
+const adjacencyHints = computed<Set<string>>(() => game.engine.adjacencyHints())
 
 const eventOpen = computed<boolean>(
   () => phase.value === 'draw' && !!currentEvent.value,
@@ -53,12 +55,12 @@ function onActiveUpdate(cards: Card[]): void {
 }
 
 function onHexClick(coord: Coord): void {
-  if (phase.value === 'movement') game.selectHex(coord)
-  else if (phase.value === 'narrative-intervention') game.placeNarrativeCard(coord)
+  if (phase.value === 'movement') game.engine.selectHex(coord)
+  else if (phase.value === 'narrative-intervention') game.engine.placeNarrativeCard(coord)
 }
 
 function onConfirm(): void {
-  game.confirmPlay()
+  game.engine.confirmPlay()
 }
 
 const dragLocked = computed<boolean>(

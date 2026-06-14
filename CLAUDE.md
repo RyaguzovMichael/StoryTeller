@@ -37,17 +37,22 @@ The tree is organized by **role/domain**, not by technical kind. The center is a
 portable game core (`engine/`) that everything else orbits.
 
 ```
-engine/            Portable game core — no Vue components, no editor, no persistence.
-                   Intended for reuse in another game; keep it framework-light.
-  gameEngine.ts      Pinia state machine driving the 4-phase game loop (the engine).
+engine/            Portable game core — pure TS, NO Vue/Pinia/notifications/persistence.
+                   Intended for reuse in another game.
+  gameEngine.ts      `class GameEngine`: state machine for the 4-phase loop. Mutates
+                     an injected GameState; emits GameEffects instead of doing I/O.
   hexGrid.ts         Pure axial-coordinate math (adjacency, distance, radius).
   rng.ts             Deterministic seeded RNG.
   scenarioGenerator.ts  Procedural Scenario generator.
   types/
     scenario/        Authored data contract, one type per file + barrel index.ts
                      (coord, hexCell, card, event, scenario).
-    gameState/       Runtime state types (phase, gameState) + barrel index.ts.
-game/              Play-side glue around the engine (e.g. useEndGameManager.ts).
+    gameState/       Runtime state types (phase, gameState, effect) + barrel index.ts.
+game/              Vue layer around the engine:
+  useGame.ts         Thin Pinia store = reactive state provider only. Exposes
+                     `engine` + derived refs; NO actions. Drive play via game.engine.*.
+  useGameEffects.ts  Observer: drains engine effects -> notifications + persistence.
+  useEndGameManager.ts  Observer: watches resources -> game.engine.endGame(...).
 editor/            Editor-side logic (mapTransforms.ts).
 views/             Route-level pages: GameView.vue, EditorView.vue.
 components/        Shared presentational UI, subdivided by role:
@@ -60,10 +65,11 @@ infrastructure/    Persistence layer (storage.ts — localStorage repository).
 router.ts          Routes (flat file, not a folder).
 ```
 
-**Engine portability seams (not yet broken).** The engine still couples to Vue/UI
-in three spots; address these before extracting it: (1) `gameEngine` is a Pinia
-store; (2) it pushes UI notifications via `useNotificationStore`; (3)
-`placeNarrativeCard` calls `saveScenario` from `infrastructure/`.
+**Engine is Vue-free.** The engine performs no side effects: it appends a
+`GameEffect` (`outcome` / `game-over` / `map-changed` / `reset`) to `state.effects`,
+and `useGameEffects` drains the queue to push notifications and persist. The
+reactivity bridge is `useGame`: it builds `reactive(state)` and hands it to the
+engine, which mutates it unaware of Vue (a plain object works in tests/Node).
 
 ### Planned architecture (per docs/DESIGN-DOCUMENT.md and docs/TASK.md)
 
@@ -73,7 +79,7 @@ The engine is a **Universal Card Narrative Engine** where stories are configured
 2. **Game Client** (`/game/:id`) — `GameView`: loads story JSON, runs game loop locally in the browser. No network after initial load.
 3. **Browser Editor** (`/editor/:id`) — `EditorView`: visual constructor for authoring stories, exports to JSON.
 
-### Game loop (4 phases, managed by a Pinia state machine)
+### Game loop (4 phases, managed by the `GameEngine` state machine)
 | Phase | Description |
 |-------|-------------|
 | 1 — Basic Movement | Player clicks adjacent hex; engine reads `event_id` from hex and displays narrative text |

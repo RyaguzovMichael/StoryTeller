@@ -1,207 +1,213 @@
-import { computed, ref } from 'vue'
-import { defineStore } from 'pinia'
+// Pure, framework-agnostic game core. No Vue, no Pinia, no notifications, no
+// persistence — the engine only owns GameState and applies the rules to it.
+//
+// Reactivity bridge: the engine mutates the state object it is handed. In the
+// Vue app the wrapper (game/useGame.ts) passes a `reactive()` object, so every
+// `this.state.x = ...` is tracked and the UI re-renders. In tests or Node, pass
+// a plain object — the same code runs with zero Vue. The engine never knows
+// which it got.
+//
+// Side effects (notifications, saving) are never performed here. The engine
+// appends a GameEffect to `state.effects`; a host observer drains and applies
+// them (see game/useGameEffects.ts). That keeps the core dependency-free.
 import type { Card, Coord, GameEvent, HexCell, Scenario } from '@/engine/types/scenario'
-import type { GamePhase } from '@/engine/types/gameState'
+import type { GameEffect, GameState } from '@/engine/types/gameState'
 import { coordKey, isAdjacent } from '@/engine/hexGrid'
 import { createRng } from '@/engine/rng'
-import { saveScenario } from '@/infrastructure/storage'
-import { useNotificationStore } from '@/notifications/notificationStore'
 
-export const useGameEngine = defineStore('game', () => {
-  const scenario = ref<Scenario | null>(null)
-  const phase = ref<GamePhase>('movement')
-  const resources = ref<Record<string, number>>({})
-  const position = ref<Coord>({ q: 0, r: 0 })
-  const drawPile = ref<Card[]>([])
-  const hand = ref<Card[]>([])
-  const activeZone = ref<Card[]>([])
-  const currentEventId = ref<string | null>(null)
-  const pendingNarrativeCard = ref<Card | null>(null)
-  const turnCount = ref<number>(0)
+export function createEmptyState(): GameState {
+  return {
+    scenario: null,
+    phase: 'movement',
+    resources: {},
+    position: { q: 0, r: 0 },
+    drawPile: [],
+    hand: [],
+    activeZone: [],
+    currentEventId: null,
+    pendingNarrativeCard: null,
+    turnCount: 0,
+    effects: [],
+  }
+}
 
-  const cells = computed<HexCell[]>(() => scenario.value?.mapData.cells ?? [])
-  const currentEvent = computed<GameEvent | null>(() => {
-    if (!scenario.value || !currentEventId.value) return null
-    return scenario.value.eventsData.find((e) => e.id === currentEventId.value) ?? null
-  })
-  const isGameOver = computed(() => phase.value === 'game-over')
-  const hiddenS = computed<number>(() =>
-    activeZone.value.reduce((sum, c) => sum + (c.weight ?? 0), 0),
-  )
+export class GameEngine {
+  constructor(private readonly state: GameState) {}
 
-  function cellAt(c: Coord): HexCell | undefined {
-    return cells.value.find((cell) => cell.q === c.q && cell.r === c.r)
+  get cells(): HexCell[] {
+    return this.state.scenario?.mapData.cells ?? []
   }
 
-  function drawToHandSize(): void {
-    const target = scenario.value?.initial_hand_size ?? 0
-    while (hand.value.length < target && drawPile.value.length > 0) {
-      const card = drawPile.value.shift()
-      if (card) hand.value.push(card)
+  get currentEvent(): GameEvent | null {
+    const scenario = this.state.scenario
+    if (!scenario || !this.state.currentEventId) return null
+    return scenario.eventsData.find((e) => e.id === this.state.currentEventId) ?? null
+  }
+
+  get isGameOver(): boolean {
+    return this.state.phase === 'game-over'
+  }
+
+  get hiddenS(): number {
+    return this.state.activeZone.reduce((sum, card) => sum + (card.weight ?? 0), 0)
+  }
+
+  private emit(effect: GameEffect): void {
+    this.state.effects.push(effect)
+  }
+
+  // Returns and clears the queued effects. The host calls this and applies them.
+  drainEffects(): GameEffect[] {
+    const drained = this.state.effects.slice()
+    this.state.effects.length = 0
+    return drained
+  }
+
+  private cellAt(coord: Coord): HexCell | undefined {
+    return this.cells.find((cell) => cell.q === coord.q && cell.r === coord.r)
+  }
+
+  private drawToHandSize(): void {
+    const target = this.state.scenario?.initial_hand_size ?? 0
+    while (this.state.hand.length < target && this.state.drawPile.length > 0) {
+      const card = this.state.drawPile.shift()
+      if (card) this.state.hand.push(card)
     }
   }
 
-  function initFromScenario(s: Scenario): void {
-    const notifications = useNotificationStore()
-    notifications.clear()
-    scenario.value = JSON.parse(JSON.stringify(s)) as Scenario
-    phase.value = 'movement'
-    resources.value = { ...s.initial_resources }
-    position.value = { ...s.starting_position }
-    activeZone.value = []
-    currentEventId.value = null
-    pendingNarrativeCard.value = null
-    turnCount.value = 0
+  initFromScenario(source: Scenario): void {
+    const state = this.state
+    state.scenario = JSON.parse(JSON.stringify(source)) as Scenario
+    state.phase = 'movement'
+    state.resources = { ...source.initial_resources }
+    state.position = { ...source.starting_position }
+    state.activeZone = []
+    state.currentEventId = null
+    state.pendingNarrativeCard = null
+    state.turnCount = 0
+    state.effects = []
 
     const rng = createRng(Date.now() & 0xffffff)
-    const standards = s.playerDeck.filter((c) => c.type === 'standard')
-    drawPile.value = rng.shuffle(standards)
-    hand.value = []
-    drawToHandSize()
+    const standards = source.playerDeck.filter((c) => c.type === 'standard')
+    state.drawPile = rng.shuffle(standards)
+    state.hand = []
+    this.drawToHandSize()
 
-    const startCell = cellAt(position.value)
+    const startCell = this.cellAt(state.position)
     if (startCell) startCell.is_revealed = true
+
+    this.emit({ kind: 'reset' })
   }
 
-  function selectHex(target: Coord): void {
-    if (phase.value !== 'movement') return
-    if (!isAdjacent(position.value, target)) return
-    const cell = cellAt(target)
+  selectHex(target: Coord): void {
+    if (this.state.phase !== 'movement') return
+    if (!isAdjacent(this.state.position, target)) return
+    const cell = this.cellAt(target)
     if (!cell) return
-    position.value = { q: target.q, r: target.r }
+    this.state.position = { q: target.q, r: target.r }
     cell.is_revealed = true
     if (cell.event_id) {
-      currentEventId.value = cell.event_id
-      phase.value = 'draw'
+      this.state.currentEventId = cell.event_id
+      this.state.phase = 'draw'
     } else {
-      currentEventId.value = null
+      this.state.currentEventId = null
     }
   }
 
-  function playCard(cardId: string): void {
-    if (phase.value !== 'draw') return
-    const idx = hand.value.findIndex((c) => c.id === cardId)
-    if (idx < 0) return
-    const card = hand.value.splice(idx, 1)[0] as Card
-    activeZone.value.push(card)
+  playCard(cardId: string): void {
+    if (this.state.phase !== 'draw') return
+    const index = this.state.hand.findIndex((c) => c.id === cardId)
+    if (index < 0) return
+    const card = this.state.hand.splice(index, 1)[0] as Card
+    this.state.activeZone.push(card)
   }
 
-  function returnCard(cardId: string): void {
-    if (phase.value !== 'draw') return
-    const idx = activeZone.value.findIndex((c) => c.id === cardId)
-    if (idx < 0) return
-    const card = activeZone.value.splice(idx, 1)[0] as Card
-    hand.value.push(card)
+  returnCard(cardId: string): void {
+    if (this.state.phase !== 'draw') return
+    const index = this.state.activeZone.findIndex((c) => c.id === cardId)
+    if (index < 0) return
+    const card = this.state.activeZone.splice(index, 1)[0] as Card
+    this.state.hand.push(card)
   }
 
-  function applyDeltas(deltas: Record<string, number>): void {
+  private applyDeltas(deltas: Record<string, number>): void {
     for (const [key, delta] of Object.entries(deltas)) {
-      const prev = resources.value[key] ?? 0
-      resources.value[key] = prev + delta
+      const previous = this.state.resources[key] ?? 0
+      this.state.resources[key] = previous + delta
     }
   }
 
-  function confirmPlay(): void {
-    if (phase.value !== 'draw') return
-    const event = currentEvent.value
+  confirmPlay(): void {
+    if (this.state.phase !== 'draw') return
+    const event = this.currentEvent
     if (!event) {
-      activeZone.value = []
-      phase.value = 'movement'
+      this.state.activeZone = []
+      this.state.phase = 'movement'
       return
     }
-    const notifications = useNotificationStore()
-    const s = hiddenS.value
+
+    const hidden = this.hiddenS
     let outcomeText: string
-    if (event.critical_threshold !== undefined && s >= event.critical_threshold) {
+    if (event.critical_threshold !== undefined && hidden >= event.critical_threshold) {
       const success = event.success_outcome
       const boosted: Record<string, number> = {}
-      for (const [k, v] of Object.entries(success.resource_deltas)) boosted[k] = v * 2
-      applyDeltas(boosted)
+      for (const [key, value] of Object.entries(success.resource_deltas)) boosted[key] = value * 2
+      this.applyDeltas(boosted)
       outcomeText = `Critical success! ${success.text}`
-    } else if (s >= event.difficulty) {
-      applyDeltas(event.success_outcome.resource_deltas)
+    } else if (hidden >= event.difficulty) {
+      this.applyDeltas(event.success_outcome.resource_deltas)
       outcomeText = `Success. ${event.success_outcome.text}`
     } else {
-      applyDeltas(event.fail_outcome.resource_deltas)
+      this.applyDeltas(event.fail_outcome.resource_deltas)
       outcomeText = `Failure. ${event.fail_outcome.text}`
     }
-    notifications.push(outcomeText, 'outcome')
+    this.emit({ kind: 'outcome', text: outcomeText })
 
-    drawPile.value.push(...activeZone.value)
-    activeZone.value = []
-    currentEventId.value = null
-    turnCount.value += 1
-    drawToHandSize()
+    this.state.drawPile.push(...this.state.activeZone)
+    this.state.activeZone = []
+    this.state.currentEventId = null
+    this.state.turnCount += 1
+    this.drawToHandSize()
 
-    const interval = scenario.value?.narrative_intervention_interval ?? 0
-    if (
-      interval > 0 &&
-      turnCount.value % interval === 0 &&
-      scenario.value
-    ) {
-      const narrative = scenario.value.playerDeck.find((c) => c.type === 'narrative')
+    const interval = this.state.scenario?.narrative_intervention_interval ?? 0
+    if (interval > 0 && this.state.turnCount % interval === 0 && this.state.scenario) {
+      const narrative = this.state.scenario.playerDeck.find((c) => c.type === 'narrative')
       if (narrative) {
-        pendingNarrativeCard.value = { ...narrative, id: `${narrative.id}-t${turnCount.value}` }
-        phase.value = 'narrative-intervention'
+        this.state.pendingNarrativeCard = { ...narrative, id: `${narrative.id}-t${this.state.turnCount}` }
+        this.state.phase = 'narrative-intervention'
         return
       }
     }
-    phase.value = 'movement'
+    this.state.phase = 'movement'
   }
 
-  function placeNarrativeCard(target: Coord): void {
-    if (phase.value !== 'narrative-intervention') return
-    const card = pendingNarrativeCard.value
-    if (!card || !scenario.value) return
-    const cell = cellAt(target)
+  placeNarrativeCard(target: Coord): void {
+    if (this.state.phase !== 'narrative-intervention') return
+    const card = this.state.pendingNarrativeCard
+    if (!card || !this.state.scenario) return
+    const cell = this.cellAt(target)
     if (!cell) return
     if (card.overwrite_terrain) cell.terrain = card.overwrite_terrain
     if (card.overwrite_event_id !== undefined) cell.event_id = card.overwrite_event_id ?? null
     cell.is_revealed = true
-    saveScenario(scenario.value)
-    pendingNarrativeCard.value = null
-    phase.value = 'movement'
+    this.state.pendingNarrativeCard = null
+    this.state.phase = 'movement'
+    this.emit({ kind: 'map-changed' })
   }
 
-  function endGame(reason: string): void {
-    if (phase.value === 'game-over') return
-    phase.value = 'game-over'
-    const notifications = useNotificationStore()
-    notifications.push(`Game over: ${reason}.`, 'game-over')
+  endGame(reason: string): void {
+    if (this.state.phase === 'game-over') return
+    this.state.phase = 'game-over'
+    this.emit({ kind: 'game-over', reason })
   }
 
-  function adjacencyHints(): Set<string> {
+  adjacencyHints(): Set<string> {
     const hints = new Set<string>()
-    for (const cell of cells.value) {
-      if (isAdjacent(position.value, { q: cell.q, r: cell.r })) {
+    for (const cell of this.cells) {
+      if (isAdjacent(this.state.position, { q: cell.q, r: cell.r })) {
         hints.add(coordKey({ q: cell.q, r: cell.r }))
       }
     }
     return hints
   }
-
-  return {
-    scenario,
-    phase,
-    resources,
-    position,
-    drawPile,
-    hand,
-    activeZone,
-    hiddenS,
-    currentEventId,
-    pendingNarrativeCard,
-    turnCount,
-    cells,
-    currentEvent,
-    isGameOver,
-    initFromScenario,
-    selectHex,
-    playCard,
-    returnCard,
-    confirmPlay,
-    placeNarrativeCard,
-    endGame,
-    adjacencyHints,
-  }
-})
+}
