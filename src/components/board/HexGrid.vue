@@ -5,11 +5,23 @@ import { coordKey, type Coord } from '@/engine/hexGrid'
 import { HEX_SIZE, HexLayout } from '@/components/board/hexLayout'
 
 const props = defineProps<{
-  cells: HexCell[]
+  cells: readonly HexCell[]
   playerPosition?: Coord
   highlightSet?: Set<string>
   dropMode?: boolean
   dimmed?: boolean
+  terrainColors?: Record<string, string>
+  // Editor affordances: render every cell at full opacity and show event markers
+  // regardless of is_revealed, mark the selected/start cells.
+  editing?: boolean
+  selectedKey?: string
+  startKey?: string
+  // Editor map states: ghost = in-canvas coord that is not a playable cell;
+  // blank = a playable cell with no terrain yet. Both render muted and label-less.
+  ghostKeys?: Set<string>
+  blankKeys?: Set<string>
+  // Editor-only preview zoom (no effect in camera/game mode). >1 zooms in.
+  zoom?: number
 }>()
 
 const emit = defineEmits<{
@@ -59,7 +71,18 @@ const cameraCenter = computed(() => {
 // Without a player (editor preview), frame the whole map regardless of its shape.
 const viewBox = computed(() => {
   if (!props.playerPosition) {
-    return layout.value.viewBoxForCells(props.cells)
+    // Editor preview: frame the whole map, then shrink the viewBox around its
+    // center by the zoom factor (zoom > 1 ⇒ smaller viewBox ⇒ closer).
+    const zoom = props.zoom ?? 1
+    const padding = 8
+    const bounds = layout.value.boundsForCells(props.cells)
+    const framedWidth = bounds.maxX - bounds.minX + 2 * padding
+    const framedHeight = bounds.maxY - bounds.minY + 2 * padding
+    const centerX = (bounds.minX + bounds.maxX) / 2
+    const centerY = (bounds.minY + bounds.maxY) / 2
+    const zoomedWidth = framedWidth / zoom
+    const zoomedHeight = framedHeight / zoom
+    return `${centerX - zoomedWidth / 2} ${centerY - zoomedHeight / 2} ${zoomedWidth} ${zoomedHeight}`
   }
   const viewWidth = containerW.value / VIEW_SCALE
   const viewHeight = containerH.value / VIEW_SCALE
@@ -90,6 +113,12 @@ interface RenderedCell {
   key: string
   highlighted: boolean
   isPlayer: boolean
+  selected: boolean
+  isStart: boolean
+  showEvent: boolean
+  fillOpacity: number
+  isGhost: boolean
+  isBlank: boolean
 }
 
 const rendered = computed<RenderedCell[]>(() =>
@@ -101,6 +130,9 @@ const rendered = computed<RenderedCell[]>(() =>
       props.playerPosition.q === cell.q &&
       props.playerPosition.r === cell.r
     const highlighted = props.highlightSet?.has(key) ?? false
+    const revealed = props.editing || cell.is_revealed
+    const isGhost = props.ghostKeys?.has(key) ?? false
+    const isBlank = props.blankKeys?.has(key) ?? false
     return {
       cell,
       cx: center.x,
@@ -109,10 +141,18 @@ const rendered = computed<RenderedCell[]>(() =>
       key,
       highlighted,
       isPlayer,
+      selected: props.selectedKey === key,
+      isStart: props.startKey === key,
+      showEvent: !!cell.event_id && revealed && !isGhost && !isBlank,
+      fillOpacity: isGhost ? 0.12 : isBlank ? 0.32 : revealed ? 1 : 0.35,
+      isGhost,
+      isBlank,
     }
   }),
 )
 
+// Built-in fallback palette, used when the scenario carries no color for a
+// terrain (or in the game, which does not yet pass authored colors).
 const TERRAIN_FILL: Record<string, string> = {
   plains: '#cdd9a3',
   swamp: '#7a8c5c',
@@ -121,8 +161,11 @@ const TERRAIN_FILL: Record<string, string> = {
   ruin: '#9c9c9c',
 }
 
-function fillFor(cell: HexCell): string {
-  return TERRAIN_FILL[cell.terrain] ?? '#bbbbbb'
+// Single point that maps a cell to its rendered fill. Authored colors win, then
+// the built-in fallback. This is the one place to extend when terrains gain
+// images/patterns instead of a flat color.
+function terrainFill(cell: HexCell): string {
+  return props.terrainColors?.[cell.terrain] ?? TERRAIN_FILL[cell.terrain] ?? '#bbbbbb'
 }
 
 function onHexClick(coord: Coord): void {
@@ -148,17 +191,21 @@ function onHexClick(coord: Coord): void {
           player: r.isPlayer,
           unrevealed: !r.cell.is_revealed,
           droppable: dropMode,
+          selected: r.selected,
+          ghost: r.isGhost,
+          blank: r.isBlank,
         }"
         @click="onHexClick({ q: r.cell.q, r: r.cell.r })"
       >
         <polygon
           :points="r.points"
-          :fill="fillFor(r.cell)"
-          :fill-opacity="r.cell.is_revealed ? 1 : 0.35"
+          :fill="terrainFill(r.cell)"
+          :fill-opacity="r.fillOpacity"
           stroke="#222"
           :stroke-width="r.isPlayer ? playerStroke : baseStroke"
         />
         <text
+          v-if="!r.isGhost && !r.isBlank"
           :x="r.cx"
           :y="r.cy - terrainYOffset"
           text-anchor="middle"
@@ -168,7 +215,7 @@ function onHexClick(coord: Coord): void {
           {{ r.cell.terrain }}
         </text>
         <text
-          v-if="r.cell.event_id && r.cell.is_revealed"
+          v-if="r.showEvent"
           :x="r.cx"
           :y="r.cy + eventYOffset"
           text-anchor="middle"
@@ -176,6 +223,17 @@ function onHexClick(coord: Coord): void {
           fill="#330000"
         >
           ★
+        </text>
+        <text
+          v-if="r.isStart"
+          :x="r.cx"
+          :y="r.cy + playerYOffset"
+          text-anchor="middle"
+          :font-size="playerFontSize"
+          font-weight="bold"
+          fill="#0033aa"
+        >
+          ⚑
         </text>
         <text
           v-if="r.isPlayer"
@@ -217,16 +275,34 @@ function onHexClick(coord: Coord): void {
   transition: transform 320ms ease;
 }
 .hex.highlighted polygon {
-  stroke: #0033aa;
+  stroke: var(--st-map-highlight);
 }
 .hex.highlighted {
   cursor: pointer;
+}
+.hex.selected polygon {
+  stroke: var(--st-map-selected);
+  stroke-width: 1.5;
+}
+.hex.ghost {
+  cursor: pointer;
+}
+.hex.ghost polygon {
+  stroke: var(--st-ghost);
+  stroke-dasharray: 2 3;
+  stroke-opacity: 0.5;
+}
+.hex.blank {
+  cursor: pointer;
+}
+.hex.blank polygon {
+  stroke: var(--st-blank);
 }
 .hex.droppable {
   cursor: pointer;
 }
 .hex.droppable polygon {
-  stroke: #993333;
+  stroke: var(--st-map-droppable);
   stroke-dasharray: 2 2;
 }
 </style>

@@ -117,11 +117,11 @@ const listStyle = computed(() => ({
   flex: 0 0 auto;
   width: 140px;
   height: 110px;
-  border: 1px solid #6c5325;
+  border: 1px solid var(--st-card-border);
   border-radius: 8px;
   padding: 0.55rem 0.6rem;
-  background: linear-gradient(180deg, #fff8e3 0%, #f1dba2 100%);
-  color: #2b1d05;
+  background: linear-gradient(180deg, var(--st-card) 0%, var(--st-card-shade) 100%);
+  color: var(--st-parchment-ink-deep);
   cursor: grab;
   font-size: 0.88rem;
   box-shadow:
@@ -158,7 +158,7 @@ const listStyle = computed(() => ({
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #c8b48a;
+  color: var(--st-gold-faint);
   font-style: italic;
   margin: 0;
   pointer-events: none;

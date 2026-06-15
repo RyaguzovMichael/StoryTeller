@@ -7,6 +7,11 @@ function makeScenario(): Scenario {
   return {
     id: 'story-1',
     metadata: { title: 'Test Story' },
+    terrains: [
+      { name: 'plains', color: '#cdd9a3' },
+      { name: 'forest', color: '#4f7a4a' },
+      { name: 'swamp', color: '#7a8c5c' },
+    ],
     mapData: {
       cells: [
         { q: 0, r: 0, terrain: 'plains', event_id: null, is_revealed: false },

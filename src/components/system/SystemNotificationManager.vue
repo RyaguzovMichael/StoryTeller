@@ -42,8 +42,8 @@ function dismiss(): void {
   z-index: 9999;
 }
 .notification-modal {
-  background: linear-gradient(180deg, #fffaf0 0%, #f6ecd6 100%);
-  border: 1px solid #b89968;
+  background: linear-gradient(180deg, var(--st-parchment) 0%, var(--st-parchment-shade) 100%);
+  border: 1px solid var(--st-parchment-border);
   border-radius: 12px;
   padding: 1.25rem 1.5rem 1rem;
   width: min(480px, 90vw);
@@ -61,12 +61,12 @@ function dismiss(): void {
   to   { opacity: 1; transform: translateY(0); }
 }
 .notification-modal.kind-game-over {
-  border-color: #7a1a0a;
+  border-color: var(--st-danger);
   border-width: 2px;
-  background: linear-gradient(180deg, #fff4f0 0%, #f5ddd6 100%);
+  background: linear-gradient(180deg, var(--st-danger-bg) 0%, var(--st-danger-bg-shade) 100%);
 }
 .notification-modal.kind-outcome {
-  border-left: 5px solid #7a5218;
+  border-left: 5px solid var(--st-wood-button-start);
 }
 .notification-header {
   display: flex;
@@ -76,25 +76,25 @@ function dismiss(): void {
   font-size: 0.72rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #8a6a2c;
+  color: var(--st-parchment-label);
   font-weight: 700;
 }
 .notification-modal.kind-game-over .notification-eyebrow {
-  color: #7a1a0a;
+  color: var(--st-danger);
 }
 .notification-text {
   margin: 0;
   font-size: 1.02rem;
   line-height: 1.45;
-  color: #2c1f0d;
+  color: var(--st-parchment-ink);
   font-family: Georgia, 'Iowan Old Style', serif;
 }
 .ok-button {
   align-self: flex-end;
   padding: 0.45rem 1.2rem;
-  background: linear-gradient(180deg, #7a5218 0%, #4a2e08 100%);
-  color: #f4ead2;
-  border: 1px solid #2c1a06;
+  background: linear-gradient(180deg, var(--st-wood-button-start) 0%, var(--st-wood-button-end) 100%);
+  color: var(--st-ink);
+  border: 1px solid var(--st-wood-edge);
   border-radius: 6px;
   font-size: 0.95rem;
   font-weight: 600;
@@ -110,7 +110,7 @@ function dismiss(): void {
   transform: translateY(1px);
 }
 .notification-modal.kind-game-over .ok-button {
-  background: linear-gradient(180deg, #7a1a0a 0%, #4a0e05 100%);
-  border-color: #2c0a04;
+  background: linear-gradient(180deg, var(--st-danger) 0%, var(--st-danger-deep) 100%);
+  border-color: var(--st-danger-edge);
 }
 </style>

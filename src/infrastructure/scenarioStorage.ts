@@ -23,6 +23,7 @@ export function isScenario(value: unknown): value is Scenario {
   const v = value as Record<string, unknown>
   if (typeof v.id !== 'string') return false
   if (!v.metadata || typeof v.metadata !== 'object') return false
+  if (!Array.isArray(v.terrains)) return false
   if (!v.mapData || typeof v.mapData !== 'object') return false
   if (!Array.isArray(v.eventsData)) return false
   if (!Array.isArray(v.playerDeck)) return false

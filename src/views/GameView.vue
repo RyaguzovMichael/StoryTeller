@@ -170,9 +170,9 @@ const dragLocked = computed<boolean>(
   height: 100vh;
   overflow: hidden;
   background:
-    radial-gradient(1200px 600px at 50% -20%, #2c2218 0%, transparent 70%),
-    linear-gradient(180deg, #1a140c 0%, #0d0a06 100%);
-  color: #f4ead2;
+    radial-gradient(1200px 600px at 50% -20%, var(--st-wood) 0%, transparent 70%),
+    linear-gradient(180deg, var(--st-wood-dark) 0%, var(--st-wood-darkest) 100%);
+  color: var(--st-ink);
   box-sizing: border-box;
 }
 .top-bar {
@@ -182,7 +182,7 @@ const dragLocked = computed<boolean>(
   justify-content: space-between;
   gap: 1rem;
   padding: 0.5rem 1rem;
-  border-bottom: 1px solid #3a2c18;
+  border-bottom: 1px solid var(--st-wood-border);
 }
 .top-bar .brand {
   display: flex;
@@ -195,7 +195,7 @@ const dragLocked = computed<boolean>(
   font-family: Georgia, 'Iowan Old Style', serif;
   font-size: 1.15rem;
   letter-spacing: 0.04em;
-  color: #f4ead2;
+  color: var(--st-ink);
   white-space: nowrap;
 }
 .top-bar nav {
@@ -204,27 +204,27 @@ const dragLocked = computed<boolean>(
   gap: 1rem;
 }
 .top-bar nav :deep(a) {
-  color: #d9c084;
+  color: var(--st-gold);
   text-decoration: none;
-  border-bottom: 1px dashed #806340;
+  border-bottom: 1px dashed var(--st-gold-line);
   padding-bottom: 1px;
   font-size: 0.9rem;
 }
 .top-bar nav .new-game {
   background: none;
   border: none;
-  border-bottom: 1px dashed #806340;
+  border-bottom: 1px dashed var(--st-gold-line);
   padding: 0 0 1px;
-  color: #d9c084;
+  color: var(--st-gold);
   font: inherit;
   font-size: 0.9rem;
   cursor: pointer;
 }
 .top-bar nav .new-game:hover {
-  color: #fff3cf;
+  color: var(--st-ink-bright);
 }
 .top-bar nav :deep(a:hover) {
-  color: #fff3cf;
+  color: var(--st-ink-bright);
 }
 .top-bar :deep(.resource-bar) {
   margin: 0;
@@ -244,9 +244,9 @@ const dragLocked = computed<boolean>(
 .board-frame {
   position: relative;
   flex: 1 1 auto;
-  border: 1px solid #4a3a22;
+  border: 1px solid var(--st-wood-border-strong);
   background:
-    radial-gradient(900px 500px at 50% 30%, #fdfaf0 0%, #e7dcc0 70%, #cbb98c 100%);
+    radial-gradient(900px 500px at 50% 30%, var(--st-board-light) 0%, var(--st-board-mid) 70%, var(--st-board-dark) 100%);
   border-radius: 10px;
   box-shadow:
     inset 0 0 60px rgba(80, 50, 10, 0.25),
@@ -260,7 +260,7 @@ const dragLocked = computed<boolean>(
   align-items: center;
   justify-content: center;
   margin: 0;
-  color: #d9c084;
+  color: var(--st-gold);
   letter-spacing: 0.04em;
 }
 .movement-hint {
@@ -271,7 +271,7 @@ const dragLocked = computed<boolean>(
   margin: 0;
   padding: 0.3rem 0.8rem;
   background: rgba(20, 14, 6, 0.65);
-  color: #fff3cf;
+  color: var(--st-ink-bright);
   border-radius: 999px;
   font-size: 0.85rem;
   letter-spacing: 0.02em;
@@ -308,8 +308,8 @@ const dragLocked = computed<boolean>(
 .hand-dock {
   flex: 0 0 auto;
   width: 100%;
-  background: linear-gradient(180deg, #1a140c 0%, #0a0703 100%);
-  border-top: 1px solid #3a2c18;
+  background: linear-gradient(180deg, var(--st-wood-dark) 0%, var(--st-wood-abyss) 100%);
+  border-top: 1px solid var(--st-wood-border);
   box-shadow: 0 -8px 16px rgba(0, 0, 0, 0.45);
 }
 </style>

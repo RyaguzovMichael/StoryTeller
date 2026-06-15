@@ -8,6 +8,7 @@ import {
   isAdjacent,
   neighbourCoordKeys,
   enumerateRadius,
+  enumerateRect,
   recenterCoords,
   type Coord,
 } from '@/engine/hexGrid'
@@ -190,6 +191,27 @@ describe('enumerateRadius', () => {
   it('produces no duplicate cells', () => {
     const cells = enumerateRadius(3)
     expect(new Set(cells.map(coordKey)).size).toBe(cells.length)
+  })
+})
+
+describe('enumerateRect', () => {
+  it('returns width*height cells', () => {
+    expect(enumerateRect(5, 3)).toHaveLength(15)
+    expect(enumerateRect(1, 1)).toHaveLength(1)
+  })
+
+  it('produces no duplicate cells', () => {
+    const cells = enumerateRect(6, 4)
+    expect(new Set(cells.map(coordKey)).size).toBe(cells.length)
+  })
+
+  it('lays rows out as axial rows shifted by floor(row/2)', () => {
+    const keys = new Set(enumerateRect(3, 3).map(coordKey))
+    // row 0 (offset 0): q 0..2; row 1 (offset 0): q 0..2; row 2 (offset 1): q -1..1
+    expect(keys.has('0,0')).toBe(true)
+    expect(keys.has('2,0')).toBe(true)
+    expect(keys.has('2,1')).toBe(true)
+    expect(keys.has('-1,2')).toBe(true)
   })
 })
 

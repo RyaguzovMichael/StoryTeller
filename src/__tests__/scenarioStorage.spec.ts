@@ -8,6 +8,7 @@ describe('isScenario', () => {
     return {
       id: 's',
       metadata: { title: 't' },
+      terrains: [],
       mapData: { cells: [] },
       eventsData: [],
       playerDeck: [],

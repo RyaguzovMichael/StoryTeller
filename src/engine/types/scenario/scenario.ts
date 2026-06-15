@@ -1,4 +1,5 @@
 import type { Coord } from '@/engine/hexGrid'
+import type { TerrainType } from './terrain'
 import type { MapConfig } from './hexCell'
 import type { EventPool } from './event'
 import type { PlayerDeck } from './card'
@@ -7,6 +8,7 @@ import type { PlayerDeck } from './card'
 export interface Scenario {
   id: string
   metadata: { title: string }
+  terrains: TerrainType[]
   mapData: MapConfig
   eventsData: EventPool
   playerDeck: PlayerDeck

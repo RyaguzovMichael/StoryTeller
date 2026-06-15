@@ -21,8 +21,8 @@ defineProps<{
 .resource-bar {
   margin: 0 1rem;
   padding: 0.45rem 0.75rem;
-  background: linear-gradient(180deg, #2c2218 0%, #1a140c 100%);
-  border: 1px solid #4a3a22;
+  background: linear-gradient(180deg, var(--st-wood) 0%, var(--st-wood-dark) 100%);
+  border: 1px solid var(--st-wood-border-strong);
   border-radius: 8px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
@@ -45,20 +45,20 @@ li {
   text-transform: uppercase;
   font-size: 0.68rem;
   letter-spacing: 0.14em;
-  color: #c8a96b;
+  color: var(--st-gold-muted);
   font-weight: 700;
 }
 .value {
   min-width: 1.5em;
   text-align: right;
   font-variant-numeric: tabular-nums;
-  color: #fff3cf;
+  color: var(--st-ink-bright);
   font-weight: 600;
 }
 .value.low {
-  color: #f6c971;
+  color: var(--st-warn);
 }
 .value.danger {
-  color: #ff8a7a;
+  color: var(--st-danger-ink);
 }
 </style>

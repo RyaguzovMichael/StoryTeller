@@ -1,162 +1,33 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
-import HexGrid from '@/components/board/HexGrid.vue'
-import { useNotificationStore } from '@/notifications/notificationStore'
-import { isScenario, loadScenario, saveScenario } from '@/infrastructure/scenarioStorage'
-import {
-  DEFAULT_PARAMS,
-  generateScenario,
-  type GeneratorParams,
-} from '@/editor/scenarioGenerator'
-import { recenterScenario } from '@/editor/mapTransforms'
-import type { Scenario } from '@/engine/types/scenario'
+import { ref } from 'vue'
+import MapTab from '@/components/editor/MapTab.vue'
+import ContentTab from '@/components/editor/ContentTab.vue'
+import JsonTab from '@/components/editor/JsonTab.vue'
 
-const notifications = useNotificationStore()
-const scenario = ref<Scenario | null>(null)
-const jsonText = ref<string>('')
-
-const params = reactive<GeneratorParams>({ ...DEFAULT_PARAMS })
-
-onMounted(() => {
-  // The editor owns scenario generation, so it may seed a default to author from
-  // when storage is empty — unlike the game, which refuses to invent a story.
-  const s = loadScenario() ?? generateScenario(DEFAULT_PARAMS)
-  setScenario(s)
-})
-
-function setScenario(s: Scenario): void {
-  scenario.value = s
-  jsonText.value = JSON.stringify(s, null, 2)
-  params.deckSize = s.playerDeck.length
-  params.narrativeCount = s.playerDeck.filter((c) => c.type === 'narrative').length
-  params.eventCount = s.eventsData.length
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, Math.floor(value)))
-}
-
-function onRegenerate(): void {
-  const safe: GeneratorParams = {
-    mapRadius: clamp(params.mapRadius, 1, 6),
-    deckSize: clamp(params.deckSize, 3, 20),
-    eventCount: clamp(params.eventCount, 1, 12),
-    narrativeCount: clamp(params.narrativeCount, 0, clamp(params.deckSize, 3, 20)),
-    seed: Math.floor(params.seed) || 1,
-  }
-  const generated = generateScenario(safe)
-  saveScenario(generated)
-  setScenario(generated)
-  notifications.push('Scenario regenerated and saved.', 'info')
-}
-
-function onSaveJson(): void {
-  try {
-    const parsed = JSON.parse(jsonText.value) as unknown
-    if (!isScenario(parsed)) {
-      notifications.push('Invalid scenario: shape does not match the schema.', 'info')
-      return
-    }
-    const centered = recenterScenario(parsed)
-    saveScenario(centered)
-    setScenario(centered)
-    notifications.push('Scenario JSON saved.', 'info')
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error'
-    notifications.push(`Invalid JSON: ${message}`, 'info')
-  }
-}
-
-function onCenterMap(): void {
-  if (!scenario.value) return
-  const centered = recenterScenario(scenario.value)
-  saveScenario(centered)
-  setScenario(centered)
-  notifications.push('Map recentered around (0,0) and saved.', 'info')
-}
-
-const previewCells = computed(() => scenario.value?.mapData.cells ?? [])
+type Tab = 'map' | 'content' | 'json'
+const tab = ref<Tab>('map')
 </script>
 
 <template>
   <main class="editor-view">
-    <header class="top-bar">
-      <h1>Editor</h1>
-      <nav>
-        <RouterLink to="/game">Play</RouterLink>
+    <header class="editor-header">
+      <div class="bar">
+        <div class="brand">
+          <h1>Storyteller</h1>
+          <RouterLink to="/game" class="mode">Play</RouterLink>
+        </div>
+      </div>
+      <nav class="tab-strip">
+        <button type="button" :class="{ active: tab === 'map' }" @click="tab = 'map'">Map</button>
+        <button type="button" :class="{ active: tab === 'content' }" @click="tab = 'content'">Content</button>
+        <button type="button" :class="{ active: tab === 'json' }" @click="tab = 'json'">JSON</button>
       </nav>
     </header>
 
-    <section class="form-card">
-      <h2>Generate from sizes</h2>
-      <div class="form-grid">
-        <label>
-          Map radius
-          <input
-            v-model.number="params.mapRadius"
-            type="number"
-            min="1"
-            max="6"
-            step="1"
-          />
-        </label>
-        <label>
-          Deck size
-          <input
-            v-model.number="params.deckSize"
-            type="number"
-            min="3"
-            max="20"
-            step="1"
-          />
-        </label>
-        <label>
-          Event count
-          <input
-            v-model.number="params.eventCount"
-            type="number"
-            min="1"
-            max="12"
-            step="1"
-          />
-        </label>
-        <label>
-          Narrative cards
-          <input
-            v-model.number="params.narrativeCount"
-            type="number"
-            min="0"
-            :max="params.deckSize"
-            step="1"
-          />
-        </label>
-        <label>
-          Seed
-          <input v-model.number="params.seed" type="number" step="1" />
-        </label>
-      </div>
-      <button type="button" class="primary" @click="onRegenerate">
-        Regenerate &amp; Save
-      </button>
-    </section>
-
-    <section class="split">
-      <div class="json-pane">
-        <h2>Scenario JSON</h2>
-        <textarea v-model="jsonText" spellcheck="false" />
-        <button type="button" class="primary" @click="onSaveJson">
-          Save JSON
-        </button>
-      </div>
-      <div class="preview-pane">
-        <h2>Preview</h2>
-        <div class="grid-wrapper">
-          <HexGrid :cells="previewCells" />
-        </div>
-        <button type="button" class="primary" @click="onCenterMap">
-          Center map
-        </button>
-      </div>
+    <section class="tab-body">
+      <MapTab v-if="tab === 'map'" />
+      <ContentTab v-else-if="tab === 'content'" />
+      <JsonTab v-else />
     </section>
   </main>
 </template>
@@ -165,72 +36,71 @@ const previewCells = computed(() => scenario.value?.mapData.cells ?? [])
 .editor-view {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding: 1rem;
-  max-width: 1100px;
-  margin: 0 auto;
+  height: 100vh;
+  background: var(--st-wood-dark);
+  color: var(--st-ink);
 }
-.top-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-.top-bar h1 {
-  margin: 0;
-}
-.form-card {
-  border: 1px solid #aaa;
-  padding: 1rem;
-  border-radius: 6px;
-  background: #fafafa;
-}
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-label {
+.editor-header {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  background: linear-gradient(180deg, var(--st-wood) 0%, var(--st-wood-dark) 100%);
+}
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.brand h1 {
+  margin: 0;
+  font-family: Georgia, 'Iowan Old Style', serif;
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+  color: var(--st-ink);
+  white-space: nowrap;
+}
+.brand .mode {
+  color: var(--st-gold);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--st-gold-line);
+  padding-bottom: 1px;
   font-size: 0.9rem;
 }
-input[type='number'] {
-  padding: 0.35rem;
-  font-size: 1rem;
+.brand .mode:hover {
+  color: var(--st-ink-bright);
 }
-button.primary {
-  background: #0033aa;
-  color: white;
+.tab-strip {
+  display: flex;
+  width: 100%;
+}
+.tab-strip button {
+  flex: 1;
+  padding: 0.6rem 0;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
+  border-bottom: 2px solid var(--st-wood-border);
+  background: transparent;
+  color: var(--st-gold-muted);
   cursor: pointer;
   font-size: 0.95rem;
+  letter-spacing: 0.03em;
 }
-.split {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+.tab-strip button:hover {
+  color: var(--st-ink);
 }
-.json-pane,
-.preview-pane {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+.tab-strip button.active {
+  color: var(--st-ink-bright);
+  border-bottom-color: var(--st-gold);
+  background: var(--st-wood);
 }
-textarea {
-  font-family: ui-monospace, monospace;
-  font-size: 0.8rem;
-  min-height: 320px;
-  padding: 0.5rem;
-}
-.grid-wrapper {
-  border: 1px solid #ccc;
-  background: #fdfdfa;
-  border-radius: 6px;
-  padding: 0.5rem;
-  height: 360px;
+.tab-body {
+  flex: 1;
+  min-height: 0;
 }
 </style>
