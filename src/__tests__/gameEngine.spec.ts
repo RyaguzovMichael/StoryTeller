@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 
 import { GameEngine } from '@/engine/gameEngine'
 import { createGameState } from '@/engine/createGameState'
-import { createEmptyState } from '@/engine/types/gameState'
-import type { EngineEvent } from '@/engine/types/gameState'
+import { createEmptyState } from '@/engine/gameState'
+import type { EngineEvent } from '@/engine/engineEvent'
 import type { Scenario } from '@/engine/types/scenario'
 
 function makeScenario(): Scenario {

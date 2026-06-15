@@ -1,11 +1,18 @@
-import type { Card, GameEvent, HexCell } from '../scenario'
-import type { Coord } from '../../hexGrid'
-import { createRandom, type Random } from '../../random'
-import type { GamePhase } from './phase'
+import type { Card, GameEvent, HexCell } from './types/scenario'
+import type { Coord } from './hexGrid'
+import { createRandom, type Random } from './random'
+
+// The four-phase game loop, plus the terminal game-over state.
+export type GamePhase =
+  | 'movement'
+  | 'draw'
+  | 'consequences'
+  | 'narrative-intervention'
+  | 'game-over'
 
 // The full runtime state the engine owns while a story is being played. This is
 // a domain model, not a DTO: `random` is a live generator object, not a plain
-// number — persistence flattens it via toDTO/fromDTO (see infrastructure/gameStorage).
+// number — persistence flattens it via serializeGameState/deserializeGameState.
 export interface GameState {
   storyId: string
   storyMetadata: { title: string }

@@ -1,4 +1,4 @@
-import type { GameState } from '@/engine/types/gameState'
+import type { GameState } from '@/engine/gameState'
 import { restoreRandom } from '@/engine/random'
 
 // Save-game store: the in-progress GameState, persisted separately from the

@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, beforeAll, afterAll, vi } from 'vitest'
 
 import { saveGame, loadGame, clearGame } from '@/infrastructure/gameStorage'
-import { createEmptyState } from '@/engine/types/gameState'
+import { createEmptyState } from '@/engine/gameState'
 import { createRandom } from '@/engine/random'
-import type { GameState } from '@/engine/types/gameState'
+import type { GameState } from '@/engine/gameState'
 
 const SAVE_KEY = 'storyteller:save:v2'
 

@@ -1,4 +1,4 @@
-import type { GameState } from '@/engine/types/gameState'
+import type { GameState } from '@/engine/gameState'
 import { neighbourCoordKeys } from '@/engine/hexGrid'
 
 // Which hexes the player may move to from the current position. For now that is

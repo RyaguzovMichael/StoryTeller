@@ -3,7 +3,7 @@
 // one-time setup itself — shuffle, deal the opening hand, reveal the start cell —
 // so the engine only ever deals with the running game, never with setup.
 import type { Scenario } from '@/engine/types/scenario'
-import { createEmptyState, type GameState } from '@/engine/types/gameState'
+import { createEmptyState, type GameState } from '@/engine/gameState'
 import { createRandom } from '@/engine/random'
 
 export function createGameState(scenario: Scenario, seed?: number): GameState {
