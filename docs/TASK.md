@@ -13,6 +13,26 @@ intent; per `CLAUDE.md`'s planning rules, actual implementation plans for these
 stages should be expressed as contracts (types/signatures/module boundaries),
 not executed as one large prose prompt.
 
+## Deferred engine/type refactors (backlog)
+
+Design intents raised during the engine cleanup, intentionally postponed:
+
+- **Split `GameState` into static + runtime.** Separate the immutable
+  scenario-reflection (storyId, metadata, event pool, narrative templates,
+  interval, draw/hand limits) from the mutable runtime fields.
+- **`GameState | EmptyState` at the type level (variant U).** Replace the
+  `useGame` placeholder + view-local `ready` flag with a store value that is
+  either empty (only at startup) or a guaranteed-ready `GameState`. Reworks the
+  reactivity bridge (ref-swap instead of in-place `Object.assign`).
+- **Branded id types.** Give entities with an `id` a dedicated type instead of
+  bare `string`, so functions take a meaningful id type.
+- **Card `text` → `title` + `description`.**
+- **Drop `CardType`.** Cards should be a single uniform type; their difference
+  is only *when* the player receives them (narrative intervention), not a stored
+  kind.
+- **Card effects as an abstraction.** Effects will be varied — model them as an
+  abstract function/handler rather than ad-hoc `overwrite_*` fields.
+
 ---
 
 Stage 3: Routing, UGC ecosystem, and multi-scenario management

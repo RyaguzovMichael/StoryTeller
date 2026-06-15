@@ -92,15 +92,16 @@ engine/            Portable game core — pure TS, NO Vue/Pinia/notifications/pe
                    for the engine/game boundary in detail.
   gameEngine.ts      `class GameEngine`: state machine for the 4-phase loop.
   hexGrid.ts         Pure axial-coordinate math (adjacency, distance, radius).
-  rng.ts             Deterministic seeded RNG.
-  scenarioGenerator.ts  Procedural Scenario generator.
+  random.ts          Deterministic seeded RNG (createRandom/restoreRandom, serializable state).
+  createGameState.ts Scenario -> ready-to-play GameState (shuffle/deal/reveal).
   types/
     scenario/        Authored data contract, one type per file + barrel index.ts
                      (coord, hexCell, card, event, scenario).
     gameState/       Runtime state types (phase, gameState, engineEvent) + barrel index.ts.
 game/              Vue layer around the engine: useGame (Pinia store), and the
                    useGameEffects/useEndGameManager observers.
-editor/            Editor-side logic (mapTransforms.ts).
+editor/            Editor-side logic (mapTransforms.ts, scenarioGenerator.ts).
+scenarioSource.ts  Orchestrates scenario loading: persisted one, else generate + save.
 views/             Route-level pages: GameView.vue, EditorView.vue.
 components/        Shared presentational UI, subdivided by role:
   board/             HexGrid.vue + hexLayout.ts (SVG/pixel geometry — render, not rules).
@@ -132,10 +133,13 @@ The engine is a **Universal Card Narrative Engine** where stories are configured
 - `MapConfig` — array of hex cells with axial coordinates, terrain tag, `event_id`, `is_revealed`
 - `EventPool` — events with hidden difficulty, `success_outcome`, `fail_outcome` (resource deltas)
 - `PlayerDeck` — cards with id, narrative text, type (`standard` | `narrative`), hidden `weight`
-- `GameState` — resources, current phase, hand/tableau/drawPile, position, current event;
+- `GameState` — resources, current phase, hand/tableau/drawPile, `playerPosition`,
+  current event, a live `random` generator, `drawCardCountPerTurn`/`handLimit`;
   the hidden check total is computed on demand from tableau card weights
-  (`sumTableauWeight`), not stored as a `$S` field
-- `Scenario` — `{ id, metadata, mapData, eventsData, playerDeck, ... }` (the persisted story JSON)
+  (`sumTableauWeight`), not stored as a `$S` field. It is a domain model — storage
+  flattens `random` to a serializable `randomState` via its DTO layer.
+- `Scenario` — `{ id, metadata, mapData, eventsData, playerDeck, initial_hand_size,
+  draw_card_count_per_turn, hand_limit, ... }` (the persisted story JSON)
 
 ### Rendering
 - Hex grid: pure **SVG polygons** with axial coordinates — no Canvas, no Pixi.js/Phaser.

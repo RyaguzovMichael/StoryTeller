@@ -21,12 +21,16 @@ to develop this project.
   likely rather than implementing it ahead of time. The architecture is
   intentionally iterative and emergent, reworked element-by-element from the
   original MVP — expect earlier decisions to be revised as later pieces land.
+- **Declaration order — general models first:** within a file, put the more
+  general / top-level models at the top and their details further down, so a
+  reader meets the big picture before the specifics (e.g. `PlayerDeck` above
+  `Card` above `CardType`).
 
 ## Testing
 
 Unit tests live in `src/__tests__/`, one file per module as `<module>.spec.ts`
 (e.g. `gameEngine.spec.ts`, `createGameState.spec.ts`, `hexGrid.spec.ts`,
-`selectors.spec.ts`, `storage.spec.ts`). Run the full suite with `make test`,
+`selectors.spec.ts`, `storage.spec.ts`, `random.spec.ts`). Run the full suite with `make test`,
 or a single file directly with `pnpm test:unit src/__tests__/hexGrid.spec.ts`.
 
 Currently only `engine/` and `infrastructure/` modules have unit tests — the
@@ -41,48 +45,60 @@ This section describes the state of `src/engine/` and `src/game/` after the
 ### `GameEngine` (`src/engine/gameEngine.ts`)
 
 - Pure, framework-agnostic game core: no Vue, no Pinia, no notifications, no
-  persistence, and **no knowledge of `Scenario`**. It is handed a ready
-  `GameState` (a loaded save, or one mapped from a scenario by
-  `createGameState`) and only applies rules to it.
+  persistence, and **no knowledge of `Scenario`**. It is handed a ready,
+  fully set-up `GameState` and only applies the rules of an ongoing game —
+  it does **no** one-time setup.
 - It is the **sole writer** of `GameState`. The host (Vue layer) only reads.
 - **Reactivity bridge:** the engine mutates the state object it's given. In
   the app, `game/useGame.ts` passes a `reactive()` object, so every
   `this.state.x = ...` is tracked and the UI re-renders. In tests/Node, a
   plain object works identically.
+- **Randomness lives in the state.** `GameState.random` is a live `Random`
+  generator (see `src/engine/random.ts`). The engine reshuffles the draw pile
+  through it whenever cards return to the pile, so a card's future position
+  can't be tracked across a save/load. Because the generator's position is
+  persisted (see Persistence), reloading a save can't reroll a shuffle.
 - **Two-channel feedback to the host:**
   - Reactive `GameState` for continuous data (resources, hand, position, ...).
   - Transient `EngineEvent`s for one-off signals, delivered via
-    `onEvent(listener)`. Current kinds: `outcome`, `game-over`, `reset`,
-    `persist` (see `src/engine/types/gameState/engineEvent.ts`).
-- **Entry point:** `load(state)` — `Object.assign`s into the engine's
-  reactive state in place (the store creates that object once and must keep
-  the same reference for `toRefs`/computed refs, so this is a method, not a
-  constructor). If `!state.initialized`, runs the private one-time
-  `initialize()` (shuffle/deal/reveal), sets `initialized = true`, and emits
-  `reset`. An already-initialized save passes through untouched.
+    `onEvent(listener)`. Current kinds: `outcome`, `game-over`, `persist`
+    (see `src/engine/types/gameState/engineEvent.ts`). Clearing notifications
+    on a new game is **not** an engine event — it's a host lifecycle concern.
+- **Entry point:** `load(state)` — `Object.assign`s the ready state into the
+  engine's reactive state in place (the store creates that object once and must
+  keep the same reference for `toRefs`/computed refs, so this is a method, not
+  a constructor) and emits `persist`. Both a fresh mapping and a restored save
+  load identically.
 
 ### `createGameState` (`src/engine/createGameState.ts`)
 
-- The **only** place that knows about `Scenario`. A pure projection
-  `Scenario -> GameState`.
+- The **only** place that knows about `Scenario`. Projects an authored
+  scenario into a **ready-to-play** `GameState`: `createGameState(scenario, seed?)`.
 - Deep-clones the whole scenario (`JSON.parse(JSON.stringify(...))`) so
   nothing in the resulting `GameState` shares references with the authored
   data — the engine may mutate any field during play.
-- Does no shuffling/dealing/reveal — that one-time setup is game *rules*, and
-  rules live in the engine (`GameEngine.initialize`), not in the mapper or in
-  the type files. Returns `initialized: false`.
+- **Performs the one-time setup itself** — creates the `random` generator
+  (`seed ?? Date.now()`), shuffles the draw pile, deals the opening hand
+  (`initial_hand_size`, consumed here and not stored on `GameState`), reveals
+  the starting cell. The engine therefore never deals with setup, only with the
+  running game.
 
 ### Persistence (`src/infrastructure/storage.ts`)
 
 - Scenario (`storyteller:scenario:v1`) and in-progress save
-  (`storyteller:save:v1`) are stored separately, so playing never mutates the
+  (`storyteller:save:v2`) are stored separately, so playing never mutates the
   authored scenario.
-- `saveGame`/`loadGame`/`clearGame` operate on the full `GameState`.
-  `isGameState` is a minimal marker check (`initialized === true`), not full
-  schema validation — bump `SAVE_KEY` when the shape changes.
+- `GameState` is a **domain model, not a DTO**: its `random` is a live object.
+  Storage owns the domain↔DTO mapping — `toDTO`/`fromDTO` flatten `random` to a
+  serializable `randomState` number and rebuild it via `restoreRandom`. The
+  save marker is a minimal structural check, not full schema validation — bump
+  `SAVE_KEY` when the shape changes.
 - Persistence is **event-driven**: `game/useGameEffects.ts` subscribes via
   `engine.onEvent` and calls `saveGame(event.state)` on the `persist` event.
   Any state-changing engine action that should be saved must emit `persist`.
+- **Choosing a scenario** is orchestrated by `src/scenarioSource.ts`
+  (`loadOrCreateScenario`: load the persisted one, else generate via the
+  editor's generator and save it) — kept out of both storage and the views.
 
 ### Vue layer (`src/game/`)
 
@@ -94,7 +110,8 @@ This section describes the state of `src/engine/` and `src/game/` after the
   through `game.engine.*`.
 - `useGameEffects.ts` — observer. Subscribes to `engine.onEvent` and performs
   all host-side work the engine refuses to do: pushing notifications
-  (`outcome`, `game-over`, `reset` clears them) and persistence (`persist`).
+  (`outcome`, `game-over`) and persistence (`persist`). Clearing notifications
+  on a new game is done by the view directly (`GameView.onNewGame`).
 - `useEndGameManager.ts` — observer that watches resources and calls
   `game.engine.endGame(...)` when an ending condition is met.
 - `selectors.ts` — pure derived-state helpers over `GameState` (e.g.
