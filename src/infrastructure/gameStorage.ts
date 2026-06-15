@@ -1,38 +1,26 @@
-import type { GameState } from '@/engine/gameState'
-import { restoreRandom } from '@/engine/random'
+import type { GameStateDTO } from '@/engine/gameState'
 
-// Save-game store: the in-progress GameState, persisted separately from the
-// story definition so playing never mutates the authored scenario.
+// Save-game store: the in-progress save, persisted separately from the story
+// definition so playing never mutates the authored scenario. This layer is a
+// dumb byte store — it takes an already-serializable DTO and hands one back,
+// knowing nothing about the engine's live `random` generator. The domain↔DTO
+// mapping lives in engine/gameState (serializeGameState/deserializeGameState).
 const SAVE_KEY = 'storyteller:save:v2'
 
-// GameState is a domain model with a live `random` generator; on disk we store a
-// flat DTO where the generator is collapsed to its serializable `randomState`.
-type GameStateDTO = Omit<GameState, 'random'> & { randomState: number }
-
-function toDTO(state: GameState): GameStateDTO {
-  const { random, ...rest } = state
-  return { ...rest, randomState: random.state }
-}
-
-function fromDTO(dto: GameStateDTO): GameState {
-  const { randomState, ...rest } = dto
-  return { ...rest, random: restoreRandom(randomState) }
-}
-
-export function loadGame(): GameState | null {
+export function loadGame(): GameStateDTO | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as unknown
     if (!isGameStateDTO(parsed)) return null
-    return fromDTO(parsed)
+    return parsed
   } catch {
     return null
   }
 }
 
-export function saveGame(state: GameState): void {
-  localStorage.setItem(SAVE_KEY, JSON.stringify(toDTO(state)))
+export function saveGame(dto: GameStateDTO): void {
+  localStorage.setItem(SAVE_KEY, JSON.stringify(dto))
 }
 
 export function clearGame(): void {

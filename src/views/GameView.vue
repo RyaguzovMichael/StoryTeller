@@ -12,6 +12,7 @@ import { useNotificationStore } from '@/notifications/notificationStore'
 import { clearGame, loadGame } from '@/infrastructure/gameStorage'
 import { loadOrCreateScenario } from '@/scenarioSource'
 import { createGameState } from '@/engine/createGameState'
+import { deserializeGameState } from '@/engine/gameState'
 import type { Card } from '@/engine/types/scenario'
 import type { Coord } from '@/engine/hexGrid'
 
@@ -41,7 +42,7 @@ onMounted(() => {
   const scenario = loadOrCreateScenario()
   const saved = loadGame()
   if (saved && saved.storyId === scenario.id && saved.phase !== 'game-over') {
-    game.engine.load(saved)
+    game.engine.load(deserializeGameState(saved))
   } else {
     game.engine.load(createGameState(scenario))
   }
