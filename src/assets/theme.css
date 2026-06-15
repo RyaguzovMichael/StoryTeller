@@ -1,0 +1,74 @@
+/* Shared color scheme for Storyteller. The game established this dark-wood +
+ * parchment + gold palette; these tokens lift the exact values out of the SFCs
+ * into one place so the editor can reuse them and the two surfaces match.
+ * Values are 1:1 with the original hardcoded colors — migrating to var() does
+ * not change how the game looks. rgba() shadows/overlays stay inline in
+ * components; they are effects, not part of the color scheme. */
+:root {
+  /* Dark wood surfaces */
+  --st-wood-abyss: #0a0703;
+  --st-wood-darkest: #0d0a06;
+  --st-wood-dark: #1a140c;
+  --st-wood: #2c2218;
+  --st-wood-border: #3a2c18;
+  --st-wood-border-strong: #4a3a22;
+  --st-wood-edge: #2c1a06;
+  --st-wood-button-start: #7a5218;
+  --st-wood-button-end: #4a2e08;
+  --st-card-border: #6c5325;
+  --st-gold-line: #806340;
+
+  /* Ink & gold */
+  --st-ink: #f4ead2;
+  --st-ink-bright: #fff3cf;
+  --st-gold: #d9c084;
+  --st-gold-muted: #c8a96b;
+  --st-gold-faint: #c8b48a;
+  --st-warn: #f6c971;
+
+  /* Parchment (light cards & panels) */
+  --st-parchment: #fffaf0;
+  --st-parchment-shade: #f6ecd6;
+  --st-card: #fff8e3;
+  --st-card-shade: #f1dba2;
+  --st-parchment-border: #b89968;
+  --st-parchment-ink: #2c1f0d;
+  --st-parchment-ink-deep: #2b1d05;
+  --st-parchment-label: #8a6a2c;
+  --st-amber: #f1d98a;
+  --st-amber-border: #7a5a22;
+
+  /* Danger / red */
+  --st-danger: #7a1a0a;
+  --st-danger-deep: #4a0e05;
+  --st-danger-edge: #2c0a04;
+  --st-danger-ink: #ff8a7a;
+  --st-danger-bg: #fff4f0;
+  --st-danger-bg-shade: #f5ddd6;
+  --st-narrative: #993333;
+  --st-narrative-bg: #fff0f0;
+  --st-narrative-card: #ffe5e5;
+  --st-narrative-card-shade: #ffc7c7;
+  --st-narrative-ink: #2b0d0d;
+  --st-narrative-label: #7a3333;
+
+  /* Board */
+  --st-board-light: #fdfaf0;
+  --st-board-mid: #e7dcc0;
+  --st-board-dark: #cbb98c;
+
+  /* Map / hex grid */
+  --st-map-stroke: #222;
+  --st-map-event: #330000;
+  --st-map-highlight: #0033aa;
+  --st-map-selected: #d08700;
+  --st-map-droppable: #993333;
+  --st-terrain-fallback: #bbbbbb;
+  --st-ghost: #999;
+  --st-blank: #777;
+
+  /* Disabled */
+  --st-disabled: #9aa3b7;
+  --st-disabled-border: #7b8398;
+  --st-disabled-ink: #e7e9ef;
+}

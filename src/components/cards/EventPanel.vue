@@ -62,8 +62,8 @@ defineEmits<{
 <style scoped>
 .event-panel {
   width: min(560px, 92%);
-  background: linear-gradient(180deg, #fffaf0 0%, #f6ecd6 100%);
-  border: 1px solid #b89968;
+  background: linear-gradient(180deg, var(--st-parchment) 0%, var(--st-parchment-shade) 100%);
+  border: 1px solid var(--st-parchment-border);
   border-radius: 12px;
   box-shadow:
     0 16px 40px rgba(40, 25, 5, 0.35),
@@ -95,18 +95,18 @@ defineEmits<{
   font-size: 0.72rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #8a6a2c;
+  color: var(--st-parchment-label);
   font-weight: 700;
 }
 .event-text {
   margin: 0;
   font-size: 1.02rem;
   line-height: 1.45;
-  color: #2c1f0d;
+  color: var(--st-parchment-ink);
   font-family: Georgia, 'Iowan Old Style', serif;
 }
 .event-drop {
-  border: 1.5px dashed #b89968;
+  border: 1.5px dashed var(--st-parchment-border);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.45);
   padding: 0.55rem;
@@ -130,20 +130,20 @@ defineEmits<{
   margin: 0;
   padding: 1rem 0.5rem;
   text-align: center;
-  color: #8a6a2c;
+  color: var(--st-parchment-label);
   font-style: italic;
   font-size: 0.9rem;
 }
 .card.played {
-  border: 1px solid #7a5a22;
-  background: linear-gradient(180deg, #fff3cf 0%, #f1d98a 100%);
+  border: 1px solid var(--st-amber-border);
+  background: linear-gradient(180deg, var(--st-ink-bright) 0%, var(--st-amber) 100%);
   border-radius: 6px;
   padding: 0.5rem 0.55rem;
   width: 132px;
   min-height: 78px;
   cursor: grab;
   font-size: 0.88rem;
-  color: #2b1d05;
+  color: var(--st-parchment-ink-deep);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 .card.played p {
@@ -158,9 +158,9 @@ defineEmits<{
 .confirm-button {
   flex: 1;
   padding: 0.85rem 1.4rem;
-  background: linear-gradient(180deg, #7a5218 0%, #4a2e08 100%);
-  color: #f4ead2;
-  border: 1px solid #2c1a06;
+  background: linear-gradient(180deg, var(--st-wood-button-start) 0%, var(--st-wood-button-end) 100%);
+  color: var(--st-ink);
+  border: 1px solid var(--st-wood-edge);
   border-radius: 6px;
   font-size: 1.05rem;
   font-weight: 600;
@@ -178,9 +178,9 @@ defineEmits<{
   transform: translateY(1px);
 }
 .confirm-button:disabled {
-  background: #9aa3b7;
-  border-color: #7b8398;
-  color: #e7e9ef;
+  background: var(--st-disabled);
+  border-color: var(--st-disabled-border);
+  color: var(--st-disabled-ink);
   cursor: not-allowed;
   box-shadow: none;
 }

@@ -262,20 +262,20 @@ function onHexClick(coord: Coord): void {
   transition: transform 320ms ease;
 }
 .hex.highlighted polygon {
-  stroke: #0033aa;
+  stroke: var(--st-map-highlight);
 }
 .hex.highlighted {
   cursor: pointer;
 }
 .hex.selected polygon {
-  stroke: #d08700;
+  stroke: var(--st-map-selected);
   stroke-width: 1.5;
 }
 .hex.ghost {
   cursor: pointer;
 }
 .hex.ghost polygon {
-  stroke: #999;
+  stroke: var(--st-ghost);
   stroke-dasharray: 2 3;
   stroke-opacity: 0.5;
 }
@@ -283,13 +283,13 @@ function onHexClick(coord: Coord): void {
   cursor: pointer;
 }
 .hex.blank polygon {
-  stroke: #777;
+  stroke: var(--st-blank);
 }
 .hex.droppable {
   cursor: pointer;
 }
 .hex.droppable polygon {
-  stroke: #993333;
+  stroke: var(--st-map-droppable);
   stroke-dasharray: 2 2;
 }
 </style>

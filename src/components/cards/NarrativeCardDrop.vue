@@ -18,11 +18,11 @@ defineProps<{
 
 <style scoped>
 .narrative-card-drop {
-  border: 2px solid #993333;
+  border: 2px solid var(--st-narrative);
   padding: 0.5rem;
   border-radius: 8px;
-  background: #fff0f0;
-  color: #2b0d0d;
+  background: var(--st-narrative-bg);
+  color: var(--st-narrative-ink);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
 }
 .narrative-card-drop h3 {
@@ -30,26 +30,26 @@ defineProps<{
   font-size: 0.75rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #993333;
+  color: var(--st-narrative);
 }
 .card.narrative {
-  border: 1px solid #993333;
-  background: linear-gradient(180deg, #ffe5e5 0%, #ffc7c7 100%);
+  border: 1px solid var(--st-narrative);
+  background: linear-gradient(180deg, var(--st-narrative-card) 0%, var(--st-narrative-card-shade) 100%);
   border-radius: 6px;
   padding: 0.6rem 0.7rem;
   width: 180px;
   min-height: 90px;
   font-size: 0.9rem;
-  color: #2b0d0d;
+  color: var(--st-narrative-ink);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 .card.narrative p {
   margin: 0 0 0.4rem;
-  color: #2b0d0d;
+  color: var(--st-narrative-ink);
   line-height: 1.35;
 }
 .card.narrative small {
-  color: #7a3333;
+  color: var(--st-narrative-label);
   font-style: italic;
 }
 </style>
