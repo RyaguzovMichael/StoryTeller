@@ -55,11 +55,11 @@ describe('ScenarioEditor — map', () => {
   })
 
   it('throws when painting a cell that does not exist', () => {
-    expect(() => editor().paintTerrain({ q: 9, r: 9 }, 'swamp')).toThrow()
+    expect(() => editor().paintTerrain({ q: 9, r: 9 }, 'swamp')).toThrow(/No cell/)
   })
 
   it('throws when painting an unknown terrain', () => {
-    expect(() => editor().paintTerrain({ q: 1, r: 0 }, 'lava')).toThrow()
+    expect(() => editor().paintTerrain({ q: 1, r: 0 }, 'lava')).toThrow(/Unknown terrain/)
   })
 
   it('assigns and clears a cell event', () => {
@@ -71,7 +71,7 @@ describe('ScenarioEditor — map', () => {
   })
 
   it('throws when assigning an unknown event', () => {
-    expect(() => editor().assignEvent({ q: 0, r: 1 }, 'ghost')).toThrow()
+    expect(() => editor().assignEvent({ q: 0, r: 1 }, 'ghost')).toThrow(/Unknown event/)
   })
 
   it('adds a new cell and is a no-op on an existing coord', () => {
@@ -86,14 +86,14 @@ describe('ScenarioEditor — map', () => {
     const ed = editor()
     ed.removeCell({ q: 0, r: 1 })
     expect(ed.draft.cellAt({ q: 0, r: 1 })).toBeUndefined()
-    expect(() => ed.removeCell({ q: 0, r: 0 })).toThrow()
+    expect(() => ed.removeCell({ q: 0, r: 0 })).toThrow(/starting cell/)
   })
 
   it('moves the start onto an existing cell only', () => {
     const ed = editor()
     ed.setStart({ q: 1, r: 0 })
     expect(ed.draft.meta.startingPosition).toEqual({ q: 1, r: 0 })
-    expect(() => ed.setStart({ q: 9, r: 9 })).toThrow()
+    expect(() => ed.setStart({ q: 9, r: 9 })).toThrow(/existing cell/)
   })
 
   it('recenters the map around (0,0) keeping the start on its cell', () => {
@@ -118,7 +118,7 @@ describe('ScenarioEditor — terrains', () => {
     const ed = editor()
     ed.addTerrain({ name: 'ruin', color: '#9c9c9c' })
     expect(ed.draft.terrains.map((t) => t.name)).toContain('ruin')
-    expect(() => ed.addTerrain({ name: 'plains', color: '#000' })).toThrow()
+    expect(() => ed.addTerrain({ name: 'plains', color: '#000' })).toThrow(/Duplicate terrain/)
   })
 
   it('updates a terrain color in place', () => {
@@ -137,7 +137,7 @@ describe('ScenarioEditor — terrains', () => {
 
   it('refuses to remove a terrain still in use, but removes an unused one', () => {
     const ed = editor()
-    expect(() => ed.removeTerrain('plains')).toThrow()
+    expect(() => ed.removeTerrain('plains')).toThrow(/in use/)
     ed.addTerrain({ name: 'ruin', color: '#9c9c9c' })
     ed.removeTerrain('ruin')
     expect(ed.draft.terrains.map((t) => t.name)).not.toContain('ruin')
@@ -163,7 +163,7 @@ describe('ScenarioEditor — events & deck', () => {
         success_outcome: { text: '', resource_deltas: {} },
         fail_outcome: { text: '', resource_deltas: {} },
       }),
-    ).toThrow()
+    ).toThrow(/Duplicate event/)
   })
 
   it('updates an event in place', () => {
@@ -191,7 +191,7 @@ describe('ScenarioEditor — events & deck', () => {
     expect(ed.draft.deck.map((c) => c.id)).not.toContain('c9')
     expect(() =>
       ed.addCard({ id: 'c1', text: 'dup', type: 'standard', weight: 1 }),
-    ).toThrow()
+    ).toThrow(/Duplicate card/)
   })
 })
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import MapTab from '@/components/editor/MapTab.vue'
+import ContentTab from '@/components/editor/ContentTab.vue'
 import { useScenarioEditor } from '@/editor/useScenarioEditor'
 import { useNotificationStore } from '@/notifications/notificationStore'
 
@@ -34,7 +35,7 @@ function onSave(): void {
 
     <section class="tab-body">
       <MapTab v-if="tab === 'map'" />
-      <div v-else class="placeholder">Content editor coming next.</div>
+      <ContentTab v-else />
     </section>
   </main>
 </template>
@@ -89,9 +90,5 @@ function onSave(): void {
 .tab-body {
   flex: 1;
   min-height: 0;
-}
-.placeholder {
-  padding: 2rem;
-  color: #999;
 }
 </style>
