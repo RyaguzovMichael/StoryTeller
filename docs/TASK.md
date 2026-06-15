@@ -33,6 +33,16 @@ Design intents raised during the engine cleanup, intentionally postponed:
 - **Card effects as an abstraction.** Effects will be varied — model them as an
   abstract function/handler rather than ad-hoc `overwrite_*` fields.
 
+### Gameplay tweaks
+
+- **Another way to draw cards.** Currently the hand only refills after resolving
+  an event (`drawCardCountPerTurn`). Consider an additional draw mechanic so the
+  player can replenish the hand outside event resolution.
+- **Notification / confirmation variants.** Every event currently requires an
+  explicit confirm click, which is mildly annoying. Introduce different
+  notification/confirmation modes (e.g. auto-resolve for some events, confirm
+  only when it matters) instead of a blanket confirm.
+
 ---
 
 Stage 3: Routing, UGC ecosystem, and multi-scenario management
