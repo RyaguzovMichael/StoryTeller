@@ -14,21 +14,9 @@ import {
   type GeneratorParams,
 } from '@/editor/scenarioGenerator'
 import { loadScenario, saveScenario } from '@/infrastructure/scenarioStorage'
-import { enumerateRect, recenterCoords, type Coord } from '@/engine/hexGrid'
+import { enumerateRect, neighborsOf, coordKey, recenterCoords, type Coord } from '@/engine/hexGrid'
 import { createRandom } from '@/engine/random'
-import type { Scenario } from '@/engine/types/scenario'
-
-// The rectangle of axial coords the editor paints over. Cells outside it are not
-// shown; coords inside it without a cell render as ghosts the author can fill.
-export interface CanvasBounds {
-  minQ: number
-  maxQ: number
-  minR: number
-  maxR: number
-}
-
-const DEFAULT_CANVAS: CanvasBounds = { minQ: -2, maxQ: 2, minR: -2, maxR: 2 }
-const CANVAS_MARGIN = 1
+import type { HexCell, Scenario } from '@/engine/types/scenario'
 
 function makeEditor(scenario: Scenario): ScenarioEditor {
   // reactive() so editor mutations re-render the UI; the editor itself is held
@@ -36,27 +24,33 @@ function makeEditor(scenario: Scenario): ScenarioEditor {
   return new ScenarioEditor(reactive(ScenarioDraft.from(scenario)) as ScenarioDraft)
 }
 
-function boundsOfCoords(coords: readonly Coord[], margin = 0): CanvasBounds {
-  if (coords.length === 0) return { ...DEFAULT_CANVAS }
-  let minQ = Infinity
-  let maxQ = -Infinity
-  let minR = Infinity
-  let maxR = -Infinity
-  for (const coord of coords) {
-    minQ = Math.min(minQ, coord.q)
-    maxQ = Math.max(maxQ, coord.q)
-    minR = Math.min(minR, coord.r)
-    maxR = Math.max(maxR, coord.r)
+// The footprint the editor paints over: an explicit list of axial coords. Coords
+// without a cell render as ghosts the author can fill. Stored as actual coords
+// (not a bounding box) so the pointy-top row offsets survive — a bbox would be
+// re-expanded into a sheared rhombus on screen.
+const DEFAULT_CANVAS = recenterCoords(enumerateRect(5, 5))
+
+// Footprint for a loaded scenario: its cells plus a one-hex halo of neighbors,
+// so the author can grow the map outward from the authored shape.
+function canvasFromCells(cells: readonly HexCell[]): Coord[] {
+  if (cells.length === 0) return [...DEFAULT_CANVAS]
+  const footprint = new Map<string, Coord>()
+  for (const cell of cells) {
+    footprint.set(coordKey(cell), { q: cell.q, r: cell.r })
+    for (const neighbor of neighborsOf(cell)) footprint.set(coordKey(neighbor), neighbor)
   }
-  return { minQ: minQ - margin, maxQ: maxQ + margin, minR: minR - margin, maxR: maxR + margin }
+  return [...footprint.values()]
 }
 
 export const useScenarioEditor = defineStore('scenarioEditor', () => {
   // The editor owns generation, so it seeds a default when storage is empty —
   // unlike the game, which refuses to invent a story.
-  const initial = loadScenario() ?? generateBlankScenario(DEFAULT_PARAMS)
+  const stored = loadScenario()
+  const initial = stored ?? generateBlankScenario(DEFAULT_PARAMS)
   const editor = shallowRef<ScenarioEditor>(makeEditor(initial))
-  const canvas = ref<CanvasBounds>(boundsOfCoords(initial.mapData.cells, CANVAS_MARGIN))
+  const canvas = ref<Coord[]>(
+    stored ? canvasFromCells(stored.mapData.cells) : [...DEFAULT_CANVAS],
+  )
 
   const draft = computed(() => editor.value.draft)
   const issues = computed(() => editor.value.draft.validate())
@@ -68,7 +62,7 @@ export const useScenarioEditor = defineStore('scenarioEditor', () => {
 
   function load(scenario: Scenario): void {
     editor.value = makeEditor(scenario)
-    canvas.value = boundsOfCoords(scenario.mapData.cells, CANVAS_MARGIN)
+    canvas.value = canvasFromCells(scenario.mapData.cells)
   }
 
   // Start over: a blank canvas sized W×H of ghosts (only the start cell authored).
@@ -76,7 +70,7 @@ export const useScenarioEditor = defineStore('scenarioEditor', () => {
     const scenario = generateBlankScenario(params)
     saveScenario(scenario)
     editor.value = makeEditor(scenario)
-    canvas.value = boundsOfCoords(recenterCoords(enumerateRect(params.mapWidth, params.mapHeight)))
+    canvas.value = recenterCoords(enumerateRect(params.mapWidth, params.mapHeight))
   }
 
   // Assign a random real terrain to every blank cell (authored cells untouched).

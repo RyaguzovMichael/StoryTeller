@@ -27,19 +27,14 @@ const selectedCell = computed(() => (selected.value ? store.draft.cellAt(selecte
 const renderCells = computed<HexCell[]>(() => {
   const cells: HexCell[] = []
   const seen = new Set<string>()
-  const { minQ, maxQ, minR, maxR } = store.canvas
-  for (let r = minR; r <= maxR; r++) {
-    for (let q = minQ; q <= maxQ; q++) {
-      const real = store.draft.cellAt({ q, r })
-      if (real) {
-        cells.push(real)
-        seen.add(coordKey({ q, r }))
-      } else {
-        cells.push({ q, r, terrain: '', event_id: null, is_revealed: false })
-      }
-    }
+  for (const coord of store.canvas) {
+    const key = coordKey(coord)
+    if (seen.has(key)) continue
+    seen.add(key)
+    const real = store.draft.cellAt(coord)
+    cells.push(real ?? { q: coord.q, r: coord.r, terrain: '', event_id: null, is_revealed: false })
   }
-  // Keep any real cells that fall outside the current canvas bounds.
+  // Keep any real cells that fall outside the current canvas footprint.
   for (const cell of store.draft.cells) {
     if (!seen.has(coordKey(cell))) cells.push(cell)
   }
