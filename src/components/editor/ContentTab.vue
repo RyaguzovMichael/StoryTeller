@@ -1,22 +1,25 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import MainEditor from '@/components/editor/MainEditor.vue'
 import TerrainEditor from '@/components/editor/TerrainEditor.vue'
 import CardEditor from '@/components/editor/CardEditor.vue'
 import EventEditor from '@/components/editor/EventEditor.vue'
 
-type SubTab = 'terrains' | 'cards' | 'events'
-const sub = ref<SubTab>('terrains')
+type SubTab = 'main' | 'terrains' | 'cards' | 'events'
+const sub = ref<SubTab>('main')
 </script>
 
 <template>
   <div class="content-tab">
     <nav class="sub-tabs">
+      <button type="button" :class="{ active: sub === 'main' }" @click="sub = 'main'">Main</button>
       <button type="button" :class="{ active: sub === 'terrains' }" @click="sub = 'terrains'">Terrains</button>
       <button type="button" :class="{ active: sub === 'cards' }" @click="sub = 'cards'">Cards</button>
       <button type="button" :class="{ active: sub === 'events' }" @click="sub = 'events'">Events</button>
     </nav>
     <div class="sub-body">
-      <TerrainEditor v-if="sub === 'terrains'" />
+      <MainEditor v-if="sub === 'main'" />
+      <TerrainEditor v-else-if="sub === 'terrains'" />
       <CardEditor v-else-if="sub === 'cards'" />
       <EventEditor v-else />
     </div>
