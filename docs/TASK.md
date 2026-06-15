@@ -17,6 +17,11 @@ not executed as one large prose prompt.
 
 Design intents raised during the engine cleanup, intentionally postponed:
 
+- **`GameState` as a class with invariant protection.** It already lives in
+  `engine/gameState.ts` and carries logic (`createEmptyState`, serialize/
+  deserialize); the next step is turning the `interface` into a class that
+  guards its own invariants. `GameEngine` stays the sole writer; readers
+  (storage DTO, selectors, Vue layer) are unaffected.
 - **Split `GameState` into static + runtime.** Separate the immutable
   scenario-reflection (storyId, metadata, event pool, narrative templates,
   interval, draw/hand limits) from the mutable runtime fields.

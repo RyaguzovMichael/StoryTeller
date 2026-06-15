@@ -29,8 +29,9 @@ to develop this project.
 ## Testing
 
 Unit tests live in `src/__tests__/`, one file per module as `<module>.spec.ts`
-(e.g. `gameEngine.spec.ts`, `createGameState.spec.ts`, `hexGrid.spec.ts`,
-`selectors.spec.ts`, `storage.spec.ts`, `random.spec.ts`). Run the full suite with `make test`,
+(e.g. `gameEngine.spec.ts`, `createGameState.spec.ts`, `gameState.spec.ts`,
+`hexGrid.spec.ts`, `selectors.spec.ts`, `scenarioStorage.spec.ts`,
+`gameStorage.spec.ts`, `random.spec.ts`). Run the full suite with `make test`,
 or a single file directly with `pnpm test:unit src/__tests__/hexGrid.spec.ts`.
 
 Currently only `engine/` and `infrastructure/` modules have unit tests — the
@@ -62,7 +63,7 @@ This section describes the state of `src/engine/` and `src/game/` after the
   - Reactive `GameState` for continuous data (resources, hand, position, ...).
   - Transient `EngineEvent`s for one-off signals, delivered via
     `onEvent(listener)`. Current kinds: `outcome`, `game-over`, `persist`
-    (see `src/engine/types/gameState/engineEvent.ts`). Clearing notifications
+    (see `src/engine/engineEvent.ts`). Clearing notifications
     on a new game is **not** an engine event — it's a host lifecycle concern.
 - **Entry point:** `load(state)` — `Object.assign`s the ready state into the
   engine's reactive state in place (the store creates that object once and must
@@ -83,22 +84,26 @@ This section describes the state of `src/engine/` and `src/game/` after the
   the starting cell. The engine therefore never deals with setup, only with the
   running game.
 
-### Persistence (`src/infrastructure/storage.ts`)
+### Persistence (`src/infrastructure/scenarioStorage.ts`, `gameStorage.ts`)
 
 - Scenario (`storyteller:scenario:v1`) and in-progress save
-  (`storyteller:save:v2`) are stored separately, so playing never mutates the
-  authored scenario.
+  (`storyteller:save:v2`) live in **separate stores**, so playing never mutates
+  the authored scenario.
 - `GameState` is a **domain model, not a DTO**: its `random` is a live object.
-  Storage owns the domain↔DTO mapping — `toDTO`/`fromDTO` flatten `random` to a
-  serializable `randomState` number and rebuild it via `restoreRandom`. The
-  save marker is a minimal structural check, not full schema validation — bump
-  `SAVE_KEY` when the shape changes.
+  The domain↔DTO mapping lives in **`engine/gameState.ts`**
+  (`serializeGameState`/`deserializeGameState`), which flattens `random` to a
+  serializable `randomState` and rebuilds it via `restoreRandom`. `gameStorage`
+  is therefore a **dumb byte store** — it takes/returns a `GameStateDTO` and
+  imports nothing from the engine's RNG. Its save marker is a minimal structural
+  check, not full schema validation — bump `SAVE_KEY` when the shape changes.
 - Persistence is **event-driven**: `game/useGameEffects.ts` subscribes via
-  `engine.onEvent` and calls `saveGame(event.state)` on the `persist` event.
-  Any state-changing engine action that should be saved must emit `persist`.
-- **Choosing a scenario** is orchestrated by `src/scenarioSource.ts`
-  (`loadOrCreateScenario`: load the persisted one, else generate via the
-  editor's generator and save it) — kept out of both storage and the views.
+  `engine.onEvent` and, on the `persist` event, calls
+  `saveGame(serializeGameState(event.state))`. Any state-changing engine action
+  that should be saved must emit `persist`.
+- **No scenario fallback:** `GameView` loads the persisted scenario via
+  `loadScenario()`; if there is none (or it is corrupt) the game does not start.
+  Only the **editor** seeds a default through `generateScenario` — there is no
+  `scenarioSource` orchestrator any more.
 
 ### Vue layer (`src/game/`)
 
