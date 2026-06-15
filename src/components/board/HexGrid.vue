@@ -16,6 +16,10 @@ const props = defineProps<{
   editing?: boolean
   selectedKey?: string
   startKey?: string
+  // Editor map states: ghost = in-canvas coord that is not a playable cell;
+  // blank = a playable cell with no terrain yet. Both render muted and label-less.
+  ghostKeys?: Set<string>
+  blankKeys?: Set<string>
 }>()
 
 const emit = defineEmits<{
@@ -100,6 +104,8 @@ interface RenderedCell {
   isStart: boolean
   showEvent: boolean
   fillOpacity: number
+  isGhost: boolean
+  isBlank: boolean
 }
 
 const rendered = computed<RenderedCell[]>(() =>
@@ -112,6 +118,8 @@ const rendered = computed<RenderedCell[]>(() =>
       props.playerPosition.r === cell.r
     const highlighted = props.highlightSet?.has(key) ?? false
     const revealed = props.editing || cell.is_revealed
+    const isGhost = props.ghostKeys?.has(key) ?? false
+    const isBlank = props.blankKeys?.has(key) ?? false
     return {
       cell,
       cx: center.x,
@@ -122,8 +130,10 @@ const rendered = computed<RenderedCell[]>(() =>
       isPlayer,
       selected: props.selectedKey === key,
       isStart: props.startKey === key,
-      showEvent: !!cell.event_id && revealed,
-      fillOpacity: revealed ? 1 : 0.35,
+      showEvent: !!cell.event_id && revealed && !isGhost && !isBlank,
+      fillOpacity: isGhost ? 0.12 : isBlank ? 0.32 : revealed ? 1 : 0.35,
+      isGhost,
+      isBlank,
     }
   }),
 )
@@ -169,6 +179,8 @@ function onHexClick(coord: Coord): void {
           unrevealed: !r.cell.is_revealed,
           droppable: dropMode,
           selected: r.selected,
+          ghost: r.isGhost,
+          blank: r.isBlank,
         }"
         @click="onHexClick({ q: r.cell.q, r: r.cell.r })"
       >
@@ -180,6 +192,7 @@ function onHexClick(coord: Coord): void {
           :stroke-width="r.isPlayer ? playerStroke : baseStroke"
         />
         <text
+          v-if="!r.isGhost && !r.isBlank"
           :x="r.cx"
           :y="r.cy - terrainYOffset"
           text-anchor="middle"
@@ -257,6 +270,20 @@ function onHexClick(coord: Coord): void {
 .hex.selected polygon {
   stroke: #d08700;
   stroke-width: 1.5;
+}
+.hex.ghost {
+  cursor: pointer;
+}
+.hex.ghost polygon {
+  stroke: #999;
+  stroke-dasharray: 2 3;
+  stroke-opacity: 0.5;
+}
+.hex.blank {
+  cursor: pointer;
+}
+.hex.blank polygon {
+  stroke: #777;
 }
 .hex.droppable {
   cursor: pointer;

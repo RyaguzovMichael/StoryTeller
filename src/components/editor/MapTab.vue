@@ -7,6 +7,8 @@ import RawJsonDrawer from '@/components/editor/RawJsonDrawer.vue'
 import { useScenarioEditor } from '@/editor/useScenarioEditor'
 import { useNotificationStore } from '@/notifications/notificationStore'
 import { coordKey, type Coord } from '@/engine/hexGrid'
+import { BLANK_TERRAIN } from '@/editor/scenarioDraft'
+import type { HexCell } from '@/engine/types/scenario'
 import type { Brush } from '@/components/editor/brush'
 
 const store = useScenarioEditor()
@@ -18,6 +20,47 @@ const selected = ref<Coord | null>(null)
 const startKey = computed(() => coordKey(store.draft.meta.startingPosition))
 const selectedKey = computed(() => (selected.value ? coordKey(selected.value) : undefined))
 const selectedCell = computed(() => (selected.value ? store.draft.cellAt(selected.value) : undefined))
+
+// The grid the editor paints over: every real cell, plus a "ghost" for each
+// in-canvas coord that has no cell yet. Ghosts are not part of the map until the
+// author paints/shapes them; blank cells are playable but unfilled.
+const renderCells = computed<HexCell[]>(() => {
+  const cells: HexCell[] = []
+  const seen = new Set<string>()
+  const { minQ, maxQ, minR, maxR } = store.canvas
+  for (let r = minR; r <= maxR; r++) {
+    for (let q = minQ; q <= maxQ; q++) {
+      const real = store.draft.cellAt({ q, r })
+      if (real) {
+        cells.push(real)
+        seen.add(coordKey({ q, r }))
+      } else {
+        cells.push({ q, r, terrain: '', event_id: null, is_revealed: false })
+      }
+    }
+  }
+  // Keep any real cells that fall outside the current canvas bounds.
+  for (const cell of store.draft.cells) {
+    if (!seen.has(coordKey(cell))) cells.push(cell)
+  }
+  return cells
+})
+
+const ghostKeys = computed(() => {
+  const keys = new Set<string>()
+  for (const cell of renderCells.value) {
+    if (!store.draft.cellAt(cell)) keys.add(coordKey(cell))
+  }
+  return keys
+})
+
+const blankKeys = computed(() => {
+  const keys = new Set<string>()
+  for (const cell of store.draft.cells) {
+    if (cell.terrain === BLANK_TERRAIN) keys.add(coordKey(cell))
+  }
+  return keys
+})
 
 function onHexClick(coord: Coord): void {
   const active = brush.value
@@ -66,8 +109,10 @@ function onRecenter(): void {
       </div>
       <div class="grid-wrapper">
         <HexGrid
-          :cells="store.draft.cells"
+          :cells="renderCells"
           :terrain-colors="store.terrainColors"
+          :ghost-keys="ghostKeys"
+          :blank-keys="blankKeys"
           :selected-key="selectedKey"
           :start-key="startKey"
           editing
@@ -76,10 +121,13 @@ function onRecenter(): void {
       </div>
       <div v-if="selectedCell" class="inspector">
         <strong>Cell ({{ selectedCell.q }}, {{ selectedCell.r }})</strong>
-        <span>terrain: {{ selectedCell.terrain }}</span>
+        <span>terrain: {{ selectedCell.terrain === '' ? '(blank)' : selectedCell.terrain }}</span>
         <span>event: {{ selectedCell.event_id ?? '—' }}</span>
         <span v-if="coordKey(selectedCell) === startKey" class="start-tag">start</span>
       </div>
+      <p v-else-if="selected" class="inspector empty">
+        Cell ({{ selected.q }}, {{ selected.r }}): ghost — not playable.
+      </p>
       <p v-else class="inspector empty">Pick the Inspect brush and click a hex to see its state.</p>
 
       <AutogenDrawer />
