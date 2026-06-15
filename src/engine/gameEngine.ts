@@ -15,7 +15,6 @@
 import type { Card, Coord, HexCell } from '@/engine/types/scenario'
 import type { EngineEvent, GameState } from '@/engine/types/gameState'
 import { isAdjacent } from '@/engine/hexGrid'
-import { createRng } from '@/engine/rng'
 
 export class GameEngine {
   private listeners: Array<(event: EngineEvent) => void> = []
@@ -23,20 +22,20 @@ export class GameEngine {
   constructor(private readonly state: GameState) {}
 
   // Single entry point for state. Accepts anything ready to play — a freshly
-  // mapped scenario or a restored save — and hydrates the engine's reactive
-  // state object in place. A fresh scenario mapping arrives uninitialized and
-  // gets the one-time setup; a save is already initialized and is loaded untouched.
+  // mapped scenario (createGameState) or a restored save — and hydrates the
+  // engine's reactive state object in place. The state already has its one-time
+  // setup done, so the engine only persists it.
   load(state: GameState): void {
     Object.assign(this.state, state)
-    if (!this.state.initialized) this.initialize()
+    this.emitPersist()
   }
 
   move(target: Coord): void {
     if (this.state.phase !== 'movement') return
-    if (!isAdjacent(this.state.position, target)) return
+    if (!isAdjacent(this.state.playerPosition, target)) return
     const cell = this.findCellAt(target)
     if (!cell) return
-    this.state.position = { q: target.q, r: target.r }
+    this.state.playerPosition = { q: target.q, r: target.r }
     cell.is_revealed = true
     if (cell.event_id) {
       this.state.currentEvent = this.state.eventsById[cell.event_id] ?? null
@@ -90,11 +89,13 @@ export class GameEngine {
     }
     this.emit({ kind: 'outcome', text: outcomeText })
 
-    this.state.drawPile.push(...this.state.tableau)
+    // Cards return to the draw pile shuffled, so a card's future position can't
+    // be tracked across a save/load.
+    this.state.drawPile = this.state.random.shuffle([...this.state.drawPile, ...this.state.tableau])
     this.state.tableau = []
     this.state.currentEvent = null
     this.state.turnCount += 1
-    this.drawCards(this.state.initialHandSize)
+    this.drawCards(this.state.drawCardCountPerTurn)
 
     if (this.isAnyResourceDepleted()) {
       this.endGame('a vital resource was depleted')
@@ -138,20 +139,6 @@ export class GameEngine {
     }
   }
 
-  // One-time setup for a freshly mapped scenario: shuffle the draw pile, deal the
-  // opening hand, reveal the starting cell. Asks the host to reset (clear
-  // notifications) and persist the fresh game.
-  private initialize(): void {
-    const rng = createRng(Date.now() & 0xffffff)
-    this.state.drawPile = rng.shuffle(this.state.drawPile)
-    this.drawCards(this.state.initialHandSize)
-    const startCell = this.findCellAt(this.state.position)
-    if (startCell) startCell.is_revealed = true
-    this.state.initialized = true
-    this.emit({ kind: 'reset' })
-    this.emitPersist()
-  }
-
   private endGame(reason: string): void {
     if (this.state.phase === 'game-over') return
     this.state.phase = 'game-over'
@@ -172,7 +159,7 @@ export class GameEngine {
   }
 
   private drawCards(count: number): void {
-    const max = this.state.initialHandSize
+    const max = this.state.handLimit
     let drawn = 0
     while (drawn < count && this.state.hand.length < max && this.state.drawPile.length > 0) {
       const card = this.state.drawPile.shift()
