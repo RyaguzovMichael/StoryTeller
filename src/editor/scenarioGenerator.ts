@@ -1,4 +1,4 @@
-import type { Card, GameEvent, HexCell, Outcome, Scenario } from '@/engine/types/scenario'
+import type { Card, GameEvent, HexCell, Outcome, Scenario, TerrainType } from '@/engine/types/scenario'
 import { coordKey, enumerateRadius, type Coord } from '@/engine/hexGrid'
 import { createRandom, type Random } from '@/engine/random'
 
@@ -18,7 +18,16 @@ export const DEFAULT_PARAMS: GeneratorParams = {
   seed: 1,
 }
 
-const TERRAINS: ReadonlyArray<string> = ['plains', 'swamp', 'forest', 'tavern', 'ruin']
+// Default terrain palette: names paired with the fill colors HexGrid falls back
+// to, so a freshly generated scenario carries its own colors.
+const DEFAULT_TERRAINS: ReadonlyArray<TerrainType> = [
+  { name: 'plains', color: '#cdd9a3' },
+  { name: 'swamp', color: '#7a8c5c' },
+  { name: 'forest', color: '#4f7a4a' },
+  { name: 'tavern', color: '#c08a4a' },
+  { name: 'ruin', color: '#9c9c9c' },
+]
+const TERRAINS: ReadonlyArray<string> = DEFAULT_TERRAINS.map((t) => t.name)
 const RESOURCE_KEYS: ReadonlyArray<string> = ['health', 'gold']
 
 const EVENT_TEXTS: ReadonlyArray<string> = [
@@ -139,6 +148,7 @@ export function generateScenario(params: GeneratorParams = DEFAULT_PARAMS): Scen
   return {
     id: `scenario-${params.seed}`,
     metadata: { title: 'Default Scenario' },
+    terrains: DEFAULT_TERRAINS.map((t) => ({ ...t })),
     mapData: { cells },
     eventsData: events,
     playerDeck: deck,

@@ -1,8 +1,6 @@
-import type { Card, GameEvent, HexCell } from '@/engine/types/scenario'
+import type { Card, GameEvent, HexCell, TerrainType } from '@/engine/types/scenario'
 import { coordKey, recenterCoords, type Coord } from '@/engine/hexGrid'
 import type { ScenarioDraft } from './scenarioDraft'
-
-const DEFAULT_TERRAIN = 'plains'
 
 // The sole writer of a ScenarioDraft: the editor counterpart of GameEngine.
 // Exposes intent-level edits an author performs; each one keeps the draft's
@@ -20,6 +18,7 @@ export class ScenarioEditor {
   // --- Map ---
 
   paintTerrain(coord: Coord, terrain: string): void {
+    if (!this.state.terrainMap.has(terrain)) throw new Error(`Unknown terrain "${terrain}"`)
     this.requireCell(coord).terrain = terrain
   }
 
@@ -33,10 +32,12 @@ export class ScenarioEditor {
   addCell(coord: Coord): void {
     const key = coordKey(coord)
     if (this.state.cellMap.has(key)) return
+    const defaultTerrain = this.state.terrainMap.keys().next().value
+    if (defaultTerrain === undefined) throw new Error('Define a terrain before adding cells')
     this.state.cellMap.set(key, {
       q: coord.q,
       r: coord.r,
-      terrain: DEFAULT_TERRAIN,
+      terrain: defaultTerrain,
       event_id: null,
       is_revealed: false,
     })
@@ -67,6 +68,43 @@ export class ScenarioEditor {
     this.state.cellMap.clear()
     for (const cell of newCells) this.state.cellMap.set(coordKey(cell), cell)
     this.state.meta.startingPosition = { q: newStart.q, r: newStart.r }
+  }
+
+  // --- Terrains ---
+
+  addTerrain(terrain: TerrainType): void {
+    if (this.state.terrainMap.has(terrain.name)) {
+      throw new Error(`Duplicate terrain "${terrain.name}"`)
+    }
+    this.state.terrainMap.set(terrain.name, terrain)
+  }
+
+  // Renaming cascades into every cell painted with the old name.
+  updateTerrain(name: string, patch: Partial<TerrainType>): void {
+    const terrain = this.state.terrainMap.get(name)
+    if (!terrain) throw new Error(`Unknown terrain "${name}"`)
+    const newName = patch.name ?? name
+    if (newName !== name && this.state.terrainMap.has(newName)) {
+      throw new Error(`Duplicate terrain "${newName}"`)
+    }
+    Object.assign(terrain, patch)
+    if (newName !== name) {
+      this.state.terrainMap.delete(name)
+      this.state.terrainMap.set(newName, terrain)
+      for (const cell of this.state.cellMap.values()) {
+        if (cell.terrain === name) cell.terrain = newName
+      }
+    }
+  }
+
+  removeTerrain(name: string): void {
+    if (!this.state.terrainMap.has(name)) throw new Error(`Unknown terrain "${name}"`)
+    for (const cell of this.state.cellMap.values()) {
+      if (cell.terrain === name) {
+        throw new Error(`Terrain "${name}" is in use; repaint those cells first`)
+      }
+    }
+    this.state.terrainMap.delete(name)
   }
 
   // --- Event pool ---

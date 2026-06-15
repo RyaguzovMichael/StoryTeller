@@ -7,6 +7,11 @@ function makeScenario(): Scenario {
   return {
     id: 'story-1',
     metadata: { title: 'Test Story' },
+    terrains: [
+      { name: 'plains', color: '#cdd9a3' },
+      { name: 'forest', color: '#4f7a4a' },
+      { name: 'swamp', color: '#7a8c5c' },
+    ],
     mapData: {
       cells: [
         { q: 0, r: 0, terrain: 'plains', event_id: null, is_revealed: true },
@@ -82,6 +87,18 @@ describe('ScenarioDraft', () => {
     scenario.starting_position = { q: 9, r: 9 }
     const codes = ScenarioDraft.from(scenario).validate().map((i) => i.code)
     expect(codes).toContain('start-off-map')
+  })
+
+  it('exposes terrains and flags a cell on a missing terrain', () => {
+    const scenario = makeScenario()
+    expect(ScenarioDraft.from(scenario).terrains.map((t) => t.name)).toEqual([
+      'plains',
+      'forest',
+      'swamp',
+    ])
+    scenario.mapData.cells[1]!.terrain = 'lava'
+    const codes = ScenarioDraft.from(scenario).validate().map((i) => i.code)
+    expect(codes).toContain('dangling-cell-terrain')
   })
 
   it('flags a dangling cell event_id', () => {

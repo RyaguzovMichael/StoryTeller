@@ -1,4 +1,4 @@
-import type { Card, GameEvent, HexCell, Scenario } from '@/engine/types/scenario'
+import type { Card, GameEvent, HexCell, Scenario, TerrainType } from '@/engine/types/scenario'
 import { coordKey, type Coord } from '@/engine/hexGrid'
 
 // A single problem found by validate(). Non-fatal: surfaced in the UI rather
@@ -31,6 +31,7 @@ export interface ScenarioMeta {
 // guaranteed structurally by the Maps; validate() reports only the referential
 // and numeric invariants the Map structure cannot enforce.
 export class ScenarioDraft {
+  readonly terrainMap: Map<string, TerrainType>
   readonly cellMap: Map<string, HexCell>
   readonly eventMap: Map<string, GameEvent>
   readonly cardMap: Map<string, Card>
@@ -39,13 +40,15 @@ export class ScenarioDraft {
   static from(scenario: Scenario): ScenarioDraft {
     // Deep clone so the draft never shares references with the source scenario.
     const clone = JSON.parse(JSON.stringify(scenario)) as Scenario
+    const terrainMap = new Map<string, TerrainType>()
+    for (const terrain of clone.terrains) terrainMap.set(terrain.name, terrain)
     const cellMap = new Map<string, HexCell>()
     for (const cell of clone.mapData.cells) cellMap.set(coordKey(cell), cell)
     const eventMap = new Map<string, GameEvent>()
     for (const event of clone.eventsData) eventMap.set(event.id, event)
     const cardMap = new Map<string, Card>()
     for (const card of clone.playerDeck) cardMap.set(card.id, card)
-    return new ScenarioDraft(cellMap, eventMap, cardMap, {
+    return new ScenarioDraft(terrainMap, cellMap, eventMap, cardMap, {
       id: clone.id,
       title: clone.metadata.title,
       initialResources: clone.initial_resources,
@@ -61,6 +64,7 @@ export class ScenarioDraft {
     return {
       id: this.meta.id,
       metadata: { title: this.meta.title },
+      terrains: [...this.terrainMap.values()],
       mapData: { cells: [...this.cellMap.values()] },
       eventsData: [...this.eventMap.values()],
       playerDeck: [...this.cardMap.values()],
@@ -75,6 +79,10 @@ export class ScenarioDraft {
 
   cellAt(coord: Coord): HexCell | undefined {
     return this.cellMap.get(coordKey(coord))
+  }
+
+  get terrains(): readonly TerrainType[] {
+    return [...this.terrainMap.values()]
   }
 
   get cells(): readonly HexCell[] {
@@ -100,6 +108,12 @@ export class ScenarioDraft {
     }
 
     for (const cell of this.cellMap.values()) {
+      if (!this.terrainMap.has(cell.terrain)) {
+        issues.push({
+          code: 'dangling-cell-terrain',
+          message: `Cell (${cell.q},${cell.r}) references missing terrain "${cell.terrain}".`,
+        })
+      }
       if (cell.event_id !== null && !this.eventMap.has(cell.event_id)) {
         issues.push({
           code: 'dangling-cell-event',
@@ -136,11 +150,13 @@ export class ScenarioDraft {
   }
 
   private constructor(
+    terrainMap: Map<string, TerrainType>,
     cellMap: Map<string, HexCell>,
     eventMap: Map<string, GameEvent>,
     cardMap: Map<string, Card>,
     meta: ScenarioMeta,
   ) {
+    this.terrainMap = terrainMap
     this.cellMap = cellMap
     this.eventMap = eventMap
     this.cardMap = cardMap

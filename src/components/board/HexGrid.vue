@@ -10,6 +10,7 @@ const props = defineProps<{
   highlightSet?: Set<string>
   dropMode?: boolean
   dimmed?: boolean
+  terrainColors?: Record<string, string>
 }>()
 
 const emit = defineEmits<{
@@ -113,6 +114,8 @@ const rendered = computed<RenderedCell[]>(() =>
   }),
 )
 
+// Built-in fallback palette, used when the scenario carries no color for a
+// terrain (or in the game, which does not yet pass authored colors).
 const TERRAIN_FILL: Record<string, string> = {
   plains: '#cdd9a3',
   swamp: '#7a8c5c',
@@ -121,8 +124,11 @@ const TERRAIN_FILL: Record<string, string> = {
   ruin: '#9c9c9c',
 }
 
-function fillFor(cell: HexCell): string {
-  return TERRAIN_FILL[cell.terrain] ?? '#bbbbbb'
+// Single point that maps a cell to its rendered fill. Authored colors win, then
+// the built-in fallback. This is the one place to extend when terrains gain
+// images/patterns instead of a flat color.
+function terrainFill(cell: HexCell): string {
+  return props.terrainColors?.[cell.terrain] ?? TERRAIN_FILL[cell.terrain] ?? '#bbbbbb'
 }
 
 function onHexClick(coord: Coord): void {
@@ -153,7 +159,7 @@ function onHexClick(coord: Coord): void {
       >
         <polygon
           :points="r.points"
-          :fill="fillFor(r.cell)"
+          :fill="terrainFill(r.cell)"
           :fill-opacity="r.cell.is_revealed ? 1 : 0.35"
           stroke="#222"
           :stroke-width="r.isPlayer ? playerStroke : baseStroke"

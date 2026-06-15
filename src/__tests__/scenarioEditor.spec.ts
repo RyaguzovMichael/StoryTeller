@@ -8,6 +8,11 @@ function makeScenario(): Scenario {
   return {
     id: 'story-1',
     metadata: { title: 'Test Story' },
+    terrains: [
+      { name: 'plains', color: '#cdd9a3' },
+      { name: 'forest', color: '#4f7a4a' },
+      { name: 'swamp', color: '#7a8c5c' },
+    ],
     mapData: {
       cells: [
         { q: 0, r: 0, terrain: 'plains', event_id: null, is_revealed: true },
@@ -43,14 +48,18 @@ function editor(): ScenarioEditor {
 }
 
 describe('ScenarioEditor — map', () => {
-  it('paints terrain on an existing cell', () => {
+  it('paints an existing terrain on an existing cell', () => {
     const ed = editor()
-    ed.paintTerrain({ q: 1, r: 0 }, 'ruin')
-    expect(ed.draft.cellAt({ q: 1, r: 0 })?.terrain).toBe('ruin')
+    ed.paintTerrain({ q: 1, r: 0 }, 'swamp')
+    expect(ed.draft.cellAt({ q: 1, r: 0 })?.terrain).toBe('swamp')
   })
 
   it('throws when painting a cell that does not exist', () => {
-    expect(() => editor().paintTerrain({ q: 9, r: 9 }, 'ruin')).toThrow()
+    expect(() => editor().paintTerrain({ q: 9, r: 9 }, 'swamp')).toThrow()
+  })
+
+  it('throws when painting an unknown terrain', () => {
+    expect(() => editor().paintTerrain({ q: 1, r: 0 }, 'lava')).toThrow()
   })
 
   it('assigns and clears a cell event', () => {
@@ -101,6 +110,37 @@ describe('ScenarioEditor — map', () => {
     expect(result.mapData.cells.some((c) => c.q === start.q && c.r === start.r)).toBe(true)
     const maxAbs = Math.max(...result.mapData.cells.map((c) => Math.max(Math.abs(c.q), Math.abs(c.r))))
     expect(maxAbs).toBeLessThan(10)
+  })
+})
+
+describe('ScenarioEditor — terrains', () => {
+  it('adds a terrain and rejects a duplicate name', () => {
+    const ed = editor()
+    ed.addTerrain({ name: 'ruin', color: '#9c9c9c' })
+    expect(ed.draft.terrains.map((t) => t.name)).toContain('ruin')
+    expect(() => ed.addTerrain({ name: 'plains', color: '#000' })).toThrow()
+  })
+
+  it('updates a terrain color in place', () => {
+    const ed = editor()
+    ed.updateTerrain('plains', { color: '#ffffff' })
+    expect(ed.draft.terrains.find((t) => t.name === 'plains')?.color).toBe('#ffffff')
+  })
+
+  it('cascades a rename into the cells using it', () => {
+    const ed = editor()
+    ed.updateTerrain('plains', { name: 'meadow' })
+    expect(ed.draft.terrains.map((t) => t.name)).toContain('meadow')
+    expect(ed.draft.cellAt({ q: 0, r: 0 })?.terrain).toBe('meadow')
+    expect(ed.draft.validate()).toEqual([])
+  })
+
+  it('refuses to remove a terrain still in use, but removes an unused one', () => {
+    const ed = editor()
+    expect(() => ed.removeTerrain('plains')).toThrow()
+    ed.addTerrain({ name: 'ruin', color: '#9c9c9c' })
+    ed.removeTerrain('ruin')
+    expect(ed.draft.terrains.map((t) => t.name)).not.toContain('ruin')
   })
 })
 
