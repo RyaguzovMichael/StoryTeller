@@ -156,43 +156,49 @@ function onRecenter(): void {
   flex-direction: column;
   min-height: 0;
 }
+.map-tab {
+  background: var(--st-wood-dark);
+  color: var(--st-ink);
+}
 .toolbar {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--st-wood-border);
 }
 .toolbar button {
-  border: 1px solid #ccc;
+  border: 1px solid var(--st-wood-border);
   border-radius: 4px;
-  background: white;
+  background: var(--st-wood-darkest);
+  color: var(--st-ink);
   padding: 0.35rem 0.7rem;
   cursor: pointer;
 }
 .hint {
   font-size: 0.85rem;
-  color: #666;
+  color: var(--st-gold-muted);
 }
 .grid-wrapper {
   flex: 1;
   min-height: 320px;
-  background: #fdfdfa;
+  background: var(--st-wood-darkest);
 }
 .inspector {
   display: flex;
   gap: 1rem;
   align-items: center;
   padding: 0.5rem 0.75rem;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--st-wood-border);
   font-size: 0.85rem;
+  color: var(--st-ink);
 }
 .inspector.empty {
-  color: #999;
+  color: var(--st-gold-muted);
   margin: 0;
 }
 .start-tag {
-  color: #0033aa;
+  color: var(--st-gold);
   font-weight: bold;
 }
 .right {

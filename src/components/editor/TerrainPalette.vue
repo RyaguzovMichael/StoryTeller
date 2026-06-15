@@ -85,8 +85,9 @@ function isActive(brush: Brush): boolean {
   gap: 1rem;
   overflow-y: auto;
   padding: 0.5rem;
-  border-left: 1px solid #ccc;
-  background: #fafafa;
+  border-left: 1px solid var(--st-wood-border);
+  background: var(--st-wood);
+  color: var(--st-ink);
 }
 section {
   display: flex;
@@ -98,7 +99,7 @@ h3 {
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #666;
+  color: var(--st-gold);
 }
 button {
   display: flex;
@@ -106,26 +107,27 @@ button {
   gap: 0.4rem;
   text-align: left;
   padding: 0.35rem 0.5rem;
-  border: 1px solid #ccc;
+  border: 1px solid var(--st-wood-border);
   border-radius: 4px;
-  background: white;
+  background: var(--st-wood-darkest);
+  color: var(--st-ink);
   cursor: pointer;
   font-size: 0.85rem;
 }
 button.active {
-  border-color: #0033aa;
-  box-shadow: inset 0 0 0 1px #0033aa;
+  border-color: var(--st-gold);
+  box-shadow: inset 0 0 0 1px var(--st-gold);
 }
 .chip {
   width: 14px;
   height: 14px;
   border-radius: 3px;
-  border: 1px solid #0003;
+  border: 1px solid rgba(0, 0, 0, 0.35);
   flex: none;
 }
 .empty {
   margin: 0;
   font-size: 0.8rem;
-  color: #999;
+  color: var(--st-gold-muted);
 }
 </style>

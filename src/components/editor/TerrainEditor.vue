@@ -67,6 +67,7 @@ function add(): void {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  color: var(--st-ink);
 }
 table {
   border-collapse: collapse;
@@ -75,7 +76,7 @@ table {
 th {
   text-align: left;
   font-size: 0.8rem;
-  color: #666;
+  color: var(--st-gold-muted);
   padding: 0.25rem;
 }
 td {
@@ -83,6 +84,10 @@ td {
 }
 input[type='text'] {
   padding: 0.3rem;
+  background: var(--st-parchment);
+  color: var(--st-parchment-ink);
+  border: 1px solid var(--st-parchment-border);
+  border-radius: 4px;
 }
 .add-row {
   display: flex;
@@ -90,18 +95,19 @@ input[type='text'] {
   align-items: center;
 }
 button {
-  border: 1px solid #ccc;
+  border: 1px solid var(--st-wood-border);
   border-radius: 4px;
-  background: white;
+  background: var(--st-wood-darkest);
+  color: var(--st-ink);
   padding: 0.35rem 0.7rem;
   cursor: pointer;
 }
 button.primary {
-  background: #0033aa;
-  color: white;
-  border: none;
+  background: linear-gradient(180deg, var(--st-wood-button-start) 0%, var(--st-wood-button-end) 100%);
+  color: var(--st-ink);
+  border: 1px solid var(--st-wood-edge);
 }
 button.danger {
-  color: #aa0000;
+  color: var(--st-danger-ink);
 }
 </style>

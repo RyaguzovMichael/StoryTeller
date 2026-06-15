@@ -30,23 +30,28 @@ const sub = ref<SubTab>('terrains')
   height: 100%;
   min-height: 0;
 }
+.content-tab {
+  background: var(--st-wood-dark);
+  color: var(--st-ink);
+}
 .sub-tabs {
   display: flex;
   gap: 0.25rem;
   padding: 0.5rem;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--st-wood-border);
 }
 .sub-tabs button {
-  border: 1px solid #ccc;
-  background: #f4f4f4;
+  border: 1px solid var(--st-wood-border);
+  background: var(--st-wood-darkest);
+  color: var(--st-ink);
   padding: 0.35rem 0.9rem;
   border-radius: 4px;
   cursor: pointer;
 }
 .sub-tabs button.active {
-  background: #334;
-  color: white;
-  border-color: #334;
+  background: var(--st-wood-button-start);
+  color: var(--st-ink-bright);
+  border-color: var(--st-gold-line);
 }
 .sub-body {
   flex: 1;

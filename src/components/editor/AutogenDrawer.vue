@@ -72,15 +72,17 @@ function onRegenerateEvents(): void {
 
 <style scoped>
 .drawer {
-  border-top: 1px solid #ccc;
-  background: #fafafa;
+  border-top: 1px solid var(--st-wood-border);
+  background: var(--st-wood);
+  color: var(--st-ink);
 }
 .drawer-toggle {
   width: 100%;
   text-align: left;
   padding: 0.5rem 0.75rem;
   border: none;
-  background: #f0f0f0;
+  background: var(--st-wood-darkest);
+  color: var(--st-gold);
   cursor: pointer;
   font-size: 0.9rem;
 }
@@ -91,7 +93,7 @@ function onRegenerateEvents(): void {
   gap: 0.75rem;
 }
 fieldset {
-  border: 1px solid #ddd;
+  border: 1px solid var(--st-wood-border);
   border-radius: 6px;
   display: flex;
   flex-direction: column;
@@ -100,7 +102,7 @@ fieldset {
 }
 legend {
   font-size: 0.8rem;
-  color: #666;
+  color: var(--st-gold);
 }
 .form-grid {
   display: grid;
@@ -116,6 +118,10 @@ label {
 input {
   padding: 0.3rem;
   font-size: 0.95rem;
+  background: var(--st-parchment);
+  color: var(--st-parchment-ink);
+  border: 1px solid var(--st-parchment-border);
+  border-radius: 4px;
 }
 .event-row {
   display: flex;
@@ -127,20 +133,21 @@ input {
 }
 button {
   align-self: flex-start;
-  border: 1px solid #ccc;
+  border: 1px solid var(--st-wood-border);
   border-radius: 4px;
-  background: white;
+  background: var(--st-wood-darkest);
+  color: var(--st-ink);
   padding: 0.4rem 0.9rem;
   cursor: pointer;
 }
 button.primary {
-  background: #0033aa;
-  color: white;
-  border: none;
+  background: linear-gradient(180deg, var(--st-wood-button-start) 0%, var(--st-wood-button-end) 100%);
+  color: var(--st-ink);
+  border: 1px solid var(--st-wood-edge);
 }
 .note {
   margin: 0;
   font-size: 0.78rem;
-  color: #999;
+  color: var(--st-gold-muted);
 }
 </style>

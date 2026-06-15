@@ -114,9 +114,11 @@ function add(): void {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  color: var(--st-ink);
 }
 .event-row {
-  border: 1px solid #ddd;
+  border: 1px solid var(--st-wood-border);
+  background: var(--st-wood);
   border-radius: 6px;
   padding: 0.5rem;
   display: flex;
@@ -147,12 +149,12 @@ fieldset {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  border: 1px solid #eee;
+  border: 1px solid var(--st-wood-border);
   border-radius: 4px;
 }
 legend {
   font-size: 0.8rem;
-  color: #666;
+  color: var(--st-gold);
 }
 .add-row {
   display: flex;
@@ -166,20 +168,25 @@ legend {
 input,
 select {
   padding: 0.3rem;
+  background: var(--st-parchment);
+  color: var(--st-parchment-ink);
+  border: 1px solid var(--st-parchment-border);
+  border-radius: 4px;
 }
 button {
-  border: 1px solid #ccc;
+  border: 1px solid var(--st-wood-border);
   border-radius: 4px;
-  background: white;
+  background: var(--st-wood-darkest);
+  color: var(--st-ink);
   padding: 0.35rem 0.7rem;
   cursor: pointer;
 }
 button.primary {
-  background: #0033aa;
-  color: white;
-  border: none;
+  background: linear-gradient(180deg, var(--st-wood-button-start) 0%, var(--st-wood-button-end) 100%);
+  color: var(--st-ink);
+  border: 1px solid var(--st-wood-edge);
 }
 button.danger {
-  color: #aa0000;
+  color: var(--st-danger-ink);
 }
 </style>

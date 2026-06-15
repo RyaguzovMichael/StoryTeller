@@ -46,43 +46,55 @@ function onSave(): void {
   flex-direction: column;
   height: 100vh;
 }
+.editor-view {
+  background: var(--st-wood-dark);
+  color: var(--st-ink);
+}
 .top-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid var(--st-wood-border);
+  background: linear-gradient(180deg, var(--st-wood) 0%, var(--st-wood-dark) 100%);
 }
 .tabs {
   display: flex;
   gap: 0.25rem;
 }
 .tabs button {
-  border: 1px solid #ccc;
-  background: #f4f4f4;
+  border: 1px solid var(--st-wood-border);
+  background: var(--st-wood-darkest);
+  color: var(--st-ink);
   padding: 0.4rem 1rem;
   cursor: pointer;
   border-radius: 4px;
 }
 .tabs button.active {
-  background: #0033aa;
-  color: white;
-  border-color: #0033aa;
+  background: var(--st-wood-button-start);
+  color: var(--st-ink-bright);
+  border-color: var(--st-gold-line);
 }
 .actions {
   display: flex;
   align-items: center;
   gap: 0.75rem;
 }
+.actions :deep(a) {
+  color: var(--st-gold);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--st-gold-line);
+  font-size: 0.9rem;
+}
 .issues {
-  color: #aa5500;
+  color: var(--st-warn);
   font-size: 0.85rem;
   cursor: help;
 }
 .actions .primary {
-  background: #0033aa;
-  color: white;
-  border: none;
+  background: linear-gradient(180deg, var(--st-wood-button-start) 0%, var(--st-wood-button-end) 100%);
+  color: var(--st-ink);
+  border: 1px solid var(--st-wood-edge);
   padding: 0.4rem 1rem;
   border-radius: 4px;
   cursor: pointer;

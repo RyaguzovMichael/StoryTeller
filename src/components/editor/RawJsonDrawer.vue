@@ -53,15 +53,17 @@ function onApply(): void {
 
 <style scoped>
 .drawer {
-  border-top: 1px solid #ccc;
-  background: #fafafa;
+  border-top: 1px solid var(--st-wood-border);
+  background: var(--st-wood);
+  color: var(--st-ink);
 }
 .drawer-toggle {
   width: 100%;
   text-align: left;
   padding: 0.5rem 0.75rem;
   border: none;
-  background: #f0f0f0;
+  background: var(--st-wood-darkest);
+  color: var(--st-gold);
   cursor: pointer;
   font-size: 0.9rem;
 }
@@ -76,21 +78,26 @@ textarea {
   font-size: 0.78rem;
   min-height: 240px;
   padding: 0.5rem;
+  background: var(--st-parchment);
+  color: var(--st-parchment-ink);
+  border: 1px solid var(--st-parchment-border);
+  border-radius: 4px;
 }
 .actions {
   display: flex;
   gap: 0.5rem;
 }
 button {
-  border: 1px solid #ccc;
+  border: 1px solid var(--st-wood-border);
   border-radius: 4px;
-  background: white;
+  background: var(--st-wood-darkest);
+  color: var(--st-ink);
   padding: 0.4rem 0.8rem;
   cursor: pointer;
 }
 button.primary {
-  background: #0033aa;
-  color: white;
-  border: none;
+  background: linear-gradient(180deg, var(--st-wood-button-start) 0%, var(--st-wood-button-end) 100%);
+  color: var(--st-ink);
+  border: 1px solid var(--st-wood-edge);
 }
 </style>
