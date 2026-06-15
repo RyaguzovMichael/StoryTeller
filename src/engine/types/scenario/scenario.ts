@@ -14,4 +14,6 @@ export interface Scenario {
   starting_position: Coord
   narrative_intervention_interval: number
   initial_hand_size: number
+  draw_card_count_per_turn: number
+  hand_limit: number
 }
