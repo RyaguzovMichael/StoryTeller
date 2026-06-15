@@ -1,9 +1,10 @@
-import type { Card, GameEvent, HexCell, Outcome, Scenario, TerrainType } from '@/engine/types/scenario'
-import { coordKey, enumerateRadius, type Coord } from '@/engine/hexGrid'
+import type { Card, GameEvent, Outcome, Scenario, TerrainType } from '@/engine/types/scenario'
+import type { Coord } from '@/engine/hexGrid'
 import { createRandom, type Random } from '@/engine/random'
 
 export interface GeneratorParams {
-  mapRadius: number
+  mapWidth: number
+  mapHeight: number
   deckSize: number
   eventCount: number
   narrativeCount: number
@@ -11,7 +12,8 @@ export interface GeneratorParams {
 }
 
 export const DEFAULT_PARAMS: GeneratorParams = {
-  mapRadius: 2,
+  mapWidth: 5,
+  mapHeight: 5,
   deckSize: 8,
   eventCount: 4,
   narrativeCount: 2,
@@ -75,7 +77,7 @@ function makeOutcome(rng: Random, sign: 1 | -1, intensity: number): Outcome {
   }
 }
 
-function makeEvents(rng: Random, count: number): GameEvent[] {
+export function generateEvents(rng: Random, count: number): GameEvent[] {
   const events: GameEvent[] = []
   for (let i = 0; i < count; i++) {
     const difficulty = rng.int(3, 8)
@@ -89,23 +91,6 @@ function makeEvents(rng: Random, count: number): GameEvent[] {
     })
   }
   return events
-}
-
-function makeCells(rng: Random, radius: number, eventIds: string[], start: Coord): HexCell[] {
-  const coords = enumerateRadius(radius)
-  const startKey = coordKey(start)
-  return coords.map((c) => {
-    const terrain = rng.pick(TERRAINS)
-    const isStart = coordKey(c) === startKey
-    const hasEvent = !isStart && eventIds.length > 0 && rng.next() < 0.5
-    return {
-      q: c.q,
-      r: c.r,
-      terrain,
-      event_id: hasEvent ? (rng.pick(eventIds) as string) : null,
-      is_revealed: isStart,
-    }
-  })
 }
 
 function makeDeck(
@@ -137,19 +122,25 @@ function makeDeck(
   return cards
 }
 
-export function generateScenario(params: GeneratorParams = DEFAULT_PARAMS): Scenario {
+// Seeds a fresh scenario the author then shapes by hand. The map is blank: only
+// the starting cell is authored (so the scenario is minimally valid); the rest of
+// the canvas is filled in by the editor via the shape brush and "fill cells". A
+// starter terrain palette, event pool and deck are generated as authoring material.
+// mapWidth/mapHeight describe the canvas the editor lays out — generation itself
+// only places the start cell.
+export function generateBlankScenario(params: GeneratorParams = DEFAULT_PARAMS): Scenario {
   const rng = createRandom(params.seed)
   const start: Coord = { q: 0, r: 0 }
-  const events = makeEvents(rng, params.eventCount)
+  const firstTerrain = TERRAINS[0] as string
+  const events = generateEvents(rng, params.eventCount)
   const eventIds = events.map((e) => e.id)
-  const cells = makeCells(rng, params.mapRadius, eventIds, start)
   const deck = makeDeck(rng, params.deckSize, params.narrativeCount, eventIds)
   const initialHandSize = Math.min(5, Math.max(1, params.deckSize - params.narrativeCount))
   return {
     id: `scenario-${params.seed}`,
     metadata: { title: 'Default Scenario' },
     terrains: DEFAULT_TERRAINS.map((t) => ({ ...t })),
-    mapData: { cells },
+    mapData: { cells: [{ q: start.q, r: start.r, terrain: firstTerrain, event_id: null, is_revealed: true }] },
     eventsData: events,
     playerDeck: deck,
     initial_resources: { health: 10, gold: 5 },

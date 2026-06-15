@@ -1,6 +1,12 @@
 import type { Card, GameEvent, HexCell, Scenario, TerrainType } from '@/engine/types/scenario'
 import { coordKey, type Coord } from '@/engine/hexGrid'
 
+// Reserved terrain marking a "blank" cell: playable (part of the authored shape)
+// but with no terrain chosen yet, so generation may fill it. Blank cells live
+// only in the draft — toScenario() drops them, so the exported Scenario never
+// carries this sentinel.
+export const BLANK_TERRAIN = ''
+
 // A single problem found by validate(). Non-fatal: surfaced in the UI rather
 // than thrown, so an author can keep editing a temporarily-invalid scenario.
 export interface ValidationIssue {
@@ -65,7 +71,8 @@ export class ScenarioDraft {
       id: this.meta.id,
       metadata: { title: this.meta.title },
       terrains: [...this.terrainMap.values()],
-      mapData: { cells: [...this.cellMap.values()] },
+      // Blank cells are an editor-only authoring state; only authored cells ship.
+      mapData: { cells: [...this.cellMap.values()].filter((cell) => cell.terrain !== BLANK_TERRAIN) },
       eventsData: [...this.eventMap.values()],
       playerDeck: [...this.cardMap.values()],
       initial_resources: this.meta.initialResources,
@@ -107,8 +114,11 @@ export class ScenarioDraft {
       })
     }
 
+    let blankCount = 0
     for (const cell of this.cellMap.values()) {
-      if (!this.terrainMap.has(cell.terrain)) {
+      if (cell.terrain === BLANK_TERRAIN) {
+        blankCount++
+      } else if (!this.terrainMap.has(cell.terrain)) {
         issues.push({
           code: 'dangling-cell-terrain',
           message: `Cell (${cell.q},${cell.r}) references missing terrain "${cell.terrain}".`,
@@ -120,6 +130,13 @@ export class ScenarioDraft {
           message: `Cell (${cell.q},${cell.r}) references missing event "${cell.event_id}".`,
         })
       }
+    }
+
+    if (blankCount > 0) {
+      issues.push({
+        code: 'unfilled-blank-cell',
+        message: `${blankCount} playable cell(s) have no terrain yet; fill or remove them.`,
+      })
     }
 
     for (const card of this.cardMap.values()) {

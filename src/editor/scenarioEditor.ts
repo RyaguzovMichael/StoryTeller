@@ -1,6 +1,7 @@
 import type { Card, GameEvent, HexCell, TerrainType } from '@/engine/types/scenario'
 import { coordKey, recenterCoords, type Coord } from '@/engine/hexGrid'
-import type { ScenarioDraft } from './scenarioDraft'
+import type { Random } from '@/engine/random'
+import { BLANK_TERRAIN, type ScenarioDraft } from './scenarioDraft'
 
 // The sole writer of a ScenarioDraft: the editor counterpart of GameEngine.
 // Exposes intent-level edits an author performs; each one keeps the draft's
@@ -17,9 +18,18 @@ export class ScenarioEditor {
 
   // --- Map ---
 
+  // Paints a real terrain, creating the cell if it does not exist yet (a click on
+  // an empty/ghost or blank hex authors it in one step). BLANK_TERRAIN is not a
+  // real terrain — use markBlank to clear a cell back to the blank state.
   paintTerrain(coord: Coord, terrain: string): void {
     if (!this.state.terrainMap.has(terrain)) throw new Error(`Unknown terrain "${terrain}"`)
-    this.requireCell(coord).terrain = terrain
+    this.upsertCell(coord).terrain = terrain
+  }
+
+  // Marks a coord as a playable-but-unfilled (blank) cell, creating it if needed.
+  // This is the shape brush: a blank cell is part of the map and a fill target.
+  markBlank(coord: Coord): void {
+    this.upsertCell(coord).terrain = BLANK_TERRAIN
   }
 
   assignEvent(coord: Coord, eventId: string | null): void {
@@ -29,18 +39,14 @@ export class ScenarioEditor {
     this.requireCell(coord).event_id = eventId
   }
 
-  addCell(coord: Coord): void {
-    const key = coordKey(coord)
-    if (this.state.cellMap.has(key)) return
-    const defaultTerrain = this.state.terrainMap.keys().next().value
-    if (defaultTerrain === undefined) throw new Error('Define a terrain before adding cells')
-    this.state.cellMap.set(key, {
-      q: coord.q,
-      r: coord.r,
-      terrain: defaultTerrain,
-      event_id: null,
-      is_revealed: false,
-    })
+  // Fills every blank cell with a random real terrain, leaving authored cells
+  // untouched. No-op for the rest of the scenario (event pool, deck).
+  fillBlankTerrains(random: Random): void {
+    const terrains = [...this.state.terrainMap.keys()]
+    if (terrains.length === 0) throw new Error('Define a terrain before filling cells')
+    for (const cell of this.state.cellMap.values()) {
+      if (cell.terrain === BLANK_TERRAIN) cell.terrain = random.pick(terrains)
+    }
   }
 
   removeCell(coord: Coord): void {
@@ -131,6 +137,16 @@ export class ScenarioEditor {
     }
   }
 
+  // Swaps the whole event pool for a freshly generated one. The old ids are gone,
+  // so every reference to them is cleared: events placed on the map and cards'
+  // overwrite_event_id.
+  replaceEvents(events: GameEvent[]): void {
+    this.state.eventMap.clear()
+    for (const event of events) this.state.eventMap.set(event.id, event)
+    for (const cell of this.state.cellMap.values()) cell.event_id = null
+    for (const card of this.state.cardMap.values()) card.overwrite_event_id = null
+  }
+
   // --- Deck ---
 
   addCard(card: Card): void {
@@ -177,6 +193,17 @@ export class ScenarioEditor {
   private requireCell(coord: Coord): HexCell {
     const cell = this.state.cellMap.get(coordKey(coord))
     if (!cell) throw new Error(`No cell at (${coord.q},${coord.r})`)
+    return cell
+  }
+
+  // Returns the cell at coord, creating a blank one if absent. Used by the paint
+  // and shape brushes, which both author wherever the author clicks.
+  private upsertCell(coord: Coord): HexCell {
+    const key = coordKey(coord)
+    const existing = this.state.cellMap.get(key)
+    if (existing) return existing
+    const cell: HexCell = { q: coord.q, r: coord.r, terrain: BLANK_TERRAIN, event_id: null, is_revealed: false }
+    this.state.cellMap.set(key, cell)
     return cell
   }
 

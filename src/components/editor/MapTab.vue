@@ -39,8 +39,8 @@ function onHexClick(coord: Coord): void {
       case 'start':
         store.editor.setStart(coord)
         break
-      case 'add':
-        store.editor.addCell(coord)
+      case 'blank':
+        store.editor.markBlank(coord)
         break
       case 'remove':
         store.editor.removeCell(coord)

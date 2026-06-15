@@ -35,8 +35,8 @@ function isActive(brush: Brush): boolean {
       <button type="button" :class="{ active: isActive({ kind: 'start' }) }" @click="select({ kind: 'start' })">
         ⚑ Set start
       </button>
-      <button type="button" :class="{ active: isActive({ kind: 'add' }) }" @click="select({ kind: 'add' })">
-        ＋ Add cell
+      <button type="button" :class="{ active: isActive({ kind: 'blank' }) }" @click="select({ kind: 'blank' })">
+        ＋ Shape (blank)
       </button>
       <button type="button" :class="{ active: isActive({ kind: 'remove' }) }" @click="select({ kind: 'remove' })">
         🗑 Remove cell

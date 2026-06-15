@@ -17,7 +17,8 @@ function clamp(value: number, min: number, max: number): number {
 function onRegenerate(): void {
   const deckSize = clamp(params.deckSize, 3, 20)
   store.regenerate({
-    mapRadius: clamp(params.mapRadius, 1, 6),
+    mapWidth: clamp(params.mapWidth, 1, 20),
+    mapHeight: clamp(params.mapHeight, 1, 20),
     deckSize,
     eventCount: clamp(params.eventCount, 1, 12),
     narrativeCount: clamp(params.narrativeCount, 0, deckSize),
@@ -34,7 +35,8 @@ function onRegenerate(): void {
     </button>
     <div v-if="open" class="drawer-body">
       <div class="form-grid">
-        <label>Map radius<input v-model.number="params.mapRadius" type="number" min="1" max="6" step="1" /></label>
+        <label>Map width<input v-model.number="params.mapWidth" type="number" min="1" max="20" step="1" /></label>
+        <label>Map height<input v-model.number="params.mapHeight" type="number" min="1" max="20" step="1" /></label>
         <label>Deck size<input v-model.number="params.deckSize" type="number" min="3" max="20" step="1" /></label>
         <label>Event count<input v-model.number="params.eventCount" type="number" min="1" max="12" step="1" /></label>
         <label>Narrative cards<input v-model.number="params.narrativeCount" type="number" min="0" :max="params.deckSize" step="1" /></label>

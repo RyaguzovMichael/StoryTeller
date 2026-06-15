@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 
-import { ScenarioDraft } from '@/editor/scenarioDraft'
+import { BLANK_TERRAIN, ScenarioDraft } from '@/editor/scenarioDraft'
 import { ScenarioEditor } from '@/editor/scenarioEditor'
+import { createRandom } from '@/engine/random'
 import type { Scenario } from '@/engine/types/scenario'
 
 function makeScenario(): Scenario {
@@ -54,8 +55,10 @@ describe('ScenarioEditor — map', () => {
     expect(ed.draft.cellAt({ q: 1, r: 0 })?.terrain).toBe('swamp')
   })
 
-  it('throws when painting a cell that does not exist', () => {
-    expect(() => editor().paintTerrain({ q: 9, r: 9 }, 'swamp')).toThrow(/No cell/)
+  it('paints (creates) a cell that does not exist yet', () => {
+    const ed = editor()
+    ed.paintTerrain({ q: 9, r: 9 }, 'swamp')
+    expect(ed.draft.cellAt({ q: 9, r: 9 })?.terrain).toBe('swamp')
   })
 
   it('throws when painting an unknown terrain', () => {
@@ -74,12 +77,34 @@ describe('ScenarioEditor — map', () => {
     expect(() => editor().assignEvent({ q: 0, r: 1 }, 'ghost')).toThrow(/Unknown event/)
   })
 
-  it('adds a new cell and is a no-op on an existing coord', () => {
+  it('marks a blank (shape) cell, creating it when absent', () => {
     const ed = editor()
-    ed.addCell({ q: 2, r: 0 })
-    expect(ed.draft.cellAt({ q: 2, r: 0 })).toBeDefined()
-    ed.addCell({ q: 0, r: 0 })
-    expect(ed.draft.cells.filter((c) => c.q === 0 && c.r === 0)).toHaveLength(1)
+    ed.markBlank({ q: 2, r: 0 })
+    expect(ed.draft.cellAt({ q: 2, r: 0 })?.terrain).toBe(BLANK_TERRAIN)
+    // Re-blanking an authored cell clears its terrain back to blank.
+    ed.markBlank({ q: 1, r: 0 })
+    expect(ed.draft.cellAt({ q: 1, r: 0 })?.terrain).toBe(BLANK_TERRAIN)
+  })
+
+  it('fills only blank cells with a real terrain, leaving authored cells', () => {
+    const ed = editor()
+    ed.markBlank({ q: 2, r: 0 })
+    ed.markBlank({ q: 3, r: 0 })
+    ed.fillBlankTerrains(createRandom(1))
+    const known = ed.draft.terrains.map((t) => t.name)
+    expect(known).toContain(ed.draft.cellAt({ q: 2, r: 0 })?.terrain)
+    expect(known).toContain(ed.draft.cellAt({ q: 3, r: 0 })?.terrain)
+    // An authored cell keeps its terrain.
+    expect(ed.draft.cellAt({ q: 0, r: 0 })?.terrain).toBe('plains')
+    expect(ed.draft.validate().some((i) => i.code === 'unfilled-blank-cell')).toBe(false)
+  })
+
+  it('drops blank cells from the exported scenario', () => {
+    const ed = editor()
+    ed.markBlank({ q: 2, r: 0 })
+    const out = ed.draft.toScenario()
+    expect(out.mapData.cells.some((c) => c.q === 2 && c.r === 0)).toBe(false)
+    expect(out.mapData.cells.every((c) => c.terrain !== BLANK_TERRAIN)).toBe(true)
   })
 
   it('removes a cell but refuses to remove the starting cell', () => {
@@ -176,6 +201,24 @@ describe('ScenarioEditor — events & deck', () => {
     const ed = editor()
     ed.removeEvent('ev-1')
     expect(ed.draft.events).toHaveLength(0)
+    expect(ed.draft.cellAt({ q: 1, r: 0 })?.event_id).toBeNull()
+    expect(ed.draft.deck.find((c) => c.id === 'n1')?.overwrite_event_id).toBeNull()
+    expect(ed.draft.validate()).toEqual([])
+  })
+
+  it('replaceEvents swaps the pool and clears all references to old events', () => {
+    const ed = editor()
+    ed.replaceEvents([
+      {
+        id: 'fresh-1',
+        text: 'new',
+        difficulty: 3,
+        success_outcome: { text: '', resource_deltas: {} },
+        fail_outcome: { text: '', resource_deltas: {} },
+      },
+    ])
+    expect(ed.draft.events.map((e) => e.id)).toEqual(['fresh-1'])
+    // Event placed on the map and card overwrite reference are cleared.
     expect(ed.draft.cellAt({ q: 1, r: 0 })?.event_id).toBeNull()
     expect(ed.draft.deck.find((c) => c.id === 'n1')?.overwrite_event_id).toBeNull()
     expect(ed.draft.validate()).toEqual([])

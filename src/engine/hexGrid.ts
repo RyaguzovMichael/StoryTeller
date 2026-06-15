@@ -50,6 +50,21 @@ export function enumerateRadius(radius: number): Coord[] {
   return cells
 }
 
+// A rectangular block of width*height cells laid out for a pointy-top grid:
+// each row r is an axial row, shifted by floor(row/2) in q so the block reads as
+// a screen-rectangle rather than a rhombus. Used by the editor to seed a canvas
+// the author sizes by width/height.
+export function enumerateRect(width: number, height: number): Coord[] {
+  const cells: Coord[] = []
+  for (let row = 0; row < height; row++) {
+    const offsetQ = Math.floor(row / 2)
+    for (let col = 0; col < width; col++) {
+      cells.push({ q: col - offsetQ, r: row })
+    }
+  }
+  return cells
+}
+
 // Translates a set of coordinates so their bounding-box center sits on (0,0),
 // keeping absolute coordinate values as small as possible. Extra fields on each
 // item (terrain, event_id, ...) are preserved. Pure: returns new objects.

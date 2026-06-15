@@ -6,7 +6,7 @@ import { computed, reactive, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { ScenarioDraft } from '@/editor/scenarioDraft'
 import { ScenarioEditor } from '@/editor/scenarioEditor'
-import { DEFAULT_PARAMS, generateScenario, type GeneratorParams } from '@/editor/scenarioGenerator'
+import { DEFAULT_PARAMS, generateBlankScenario, type GeneratorParams } from '@/editor/scenarioGenerator'
 import { loadScenario, saveScenario } from '@/infrastructure/scenarioStorage'
 import type { Scenario } from '@/engine/types/scenario'
 
@@ -19,7 +19,7 @@ function makeEditor(scenario: Scenario): ScenarioEditor {
 export const useScenarioEditor = defineStore('scenarioEditor', () => {
   // The editor owns generation, so it seeds a default when storage is empty —
   // unlike the game, which refuses to invent a story.
-  const initial = loadScenario() ?? generateScenario(DEFAULT_PARAMS)
+  const initial = loadScenario() ?? generateBlankScenario(DEFAULT_PARAMS)
   const editor = shallowRef<ScenarioEditor>(makeEditor(initial))
 
   const draft = computed(() => editor.value.draft)
@@ -35,7 +35,7 @@ export const useScenarioEditor = defineStore('scenarioEditor', () => {
   }
 
   function regenerate(params: GeneratorParams): void {
-    const scenario = generateScenario(params)
+    const scenario = generateBlankScenario(params)
     saveScenario(scenario)
     editor.value = makeEditor(scenario)
   }

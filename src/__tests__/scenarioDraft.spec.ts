@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { ScenarioDraft } from '@/editor/scenarioDraft'
+import { BLANK_TERRAIN, ScenarioDraft } from '@/editor/scenarioDraft'
 import type { Scenario } from '@/engine/types/scenario'
 
 function makeScenario(): Scenario {
@@ -99,6 +99,17 @@ describe('ScenarioDraft', () => {
     scenario.mapData.cells[1]!.terrain = 'lava'
     const codes = ScenarioDraft.from(scenario).validate().map((i) => i.code)
     expect(codes).toContain('dangling-cell-terrain')
+  })
+
+  it('treats a blank cell as unfilled (not a dangling terrain) and drops it on export', () => {
+    const scenario = makeScenario()
+    scenario.mapData.cells[2]!.terrain = BLANK_TERRAIN
+    const draft = ScenarioDraft.from(scenario)
+    const codes = draft.validate().map((i) => i.code)
+    expect(codes).toContain('unfilled-blank-cell')
+    expect(codes).not.toContain('dangling-cell-terrain')
+    const exported = draft.toScenario()
+    expect(exported.mapData.cells.some((c) => c.q === 0 && c.r === 1)).toBe(false)
   })
 
   it('flags a dangling cell event_id', () => {
