@@ -5,5 +5,5 @@ import { neighbourCoordKeys } from '@/engine/hexGrid'
 // simply the adjacent cells that exist on the map; movement-restricting rules
 // will layer in here later.
 export function reachableCoordKeys(state: GameState): Set<string> {
-  return neighbourCoordKeys(state.position, state.cells)
+  return neighbourCoordKeys(state.playerPosition, state.cells)
 }

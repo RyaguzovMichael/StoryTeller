@@ -2,16 +2,13 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import HexGrid from '@/components/board/HexGrid.vue'
 import { useNotificationStore } from '@/notifications/notificationStore'
-import {
-  isScenario,
-  loadOrCreateScenario,
-  saveScenario,
-} from '@/infrastructure/storage'
+import { isScenario, saveScenario } from '@/infrastructure/storage'
+import { loadOrCreateScenario } from '@/scenarioSource'
 import {
   DEFAULT_PARAMS,
   generateScenario,
   type GeneratorParams,
-} from '@/engine/scenarioGenerator'
+} from '@/editor/scenarioGenerator'
 import { recenterScenario } from '@/editor/mapTransforms'
 import type { Scenario } from '@/engine/types/scenario'
 

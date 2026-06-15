@@ -11,7 +11,7 @@ function cell(q: number, r: number): HexCell {
 
 function stateWith(position: { q: number; r: number }, cells: HexCell[]): GameState {
   const state = createEmptyState()
-  state.position = position
+  state.playerPosition = position
   state.cells = cells
   return state
 }
