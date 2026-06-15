@@ -164,6 +164,13 @@ export class ScenarioEditor {
     if (!this.state.cardMap.delete(id)) throw new Error(`Unknown card "${id}"`)
   }
 
+  // Swaps the whole deck for a freshly generated one. Narrative cards carry their
+  // own overwrite targets, so no cascade is needed here.
+  replaceDeck(cards: Card[]): void {
+    this.state.cardMap.clear()
+    for (const card of cards) this.state.cardMap.set(card.id, card)
+  }
+
   // --- Metadata ---
 
   setTitle(title: string): void {

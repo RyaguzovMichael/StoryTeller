@@ -236,6 +236,12 @@ describe('ScenarioEditor — events & deck', () => {
       ed.addCard({ id: 'c1', text: 'dup', type: 'standard', weight: 1 }),
     ).toThrow(/Duplicate card/)
   })
+
+  it('replaceDeck swaps the whole deck', () => {
+    const ed = editor()
+    ed.replaceDeck([{ id: 'fresh-card', text: 'new', type: 'standard', weight: 2 }])
+    expect(ed.draft.deck.map((c) => c.id)).toEqual(['fresh-card'])
+  })
 })
 
 describe('ScenarioEditor — meta', () => {

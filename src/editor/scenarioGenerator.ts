@@ -1,35 +1,24 @@
 import type { Card, GameEvent, Outcome, Scenario, TerrainType } from '@/engine/types/scenario'
 import type { Coord } from '@/engine/hexGrid'
-import { createRandom, type Random } from '@/engine/random'
+import type { Random } from '@/engine/random'
 
-export interface GeneratorParams {
-  mapWidth: number
-  mapHeight: number
-  deckSize: number
+// Default counts offered in the editor's "Regenerate…" dialog.
+export interface GenerateCounts {
   eventCount: number
+  deckSize: number
   narrativeCount: number
-  seed: number
 }
 
-export const DEFAULT_PARAMS: GeneratorParams = {
-  mapWidth: 5,
-  mapHeight: 5,
-  deckSize: 8,
+export const DEFAULT_GEN: GenerateCounts = {
   eventCount: 4,
+  deckSize: 8,
   narrativeCount: 2,
-  seed: 1,
 }
 
-// Default terrain palette: names paired with the fill colors HexGrid falls back
-// to, so a freshly generated scenario carries its own colors.
-const DEFAULT_TERRAINS: ReadonlyArray<TerrainType> = [
-  { name: 'plains', color: '#cdd9a3' },
-  { name: 'swamp', color: '#7a8c5c' },
-  { name: 'forest', color: '#4f7a4a' },
-  { name: 'tavern', color: '#c08a4a' },
-  { name: 'ruin', color: '#9c9c9c' },
-]
-const TERRAINS: ReadonlyArray<string> = DEFAULT_TERRAINS.map((t) => t.name)
+// The single terrain a freshly cleared scenario starts with. The author adds
+// more from the Content tab; "fill" and deck generation draw from whatever
+// terrains the draft actually has, not from a fixed palette.
+const STARTER_TERRAIN: TerrainType = { name: 'plains', color: '#cdd9a3' }
 const RESOURCE_KEYS: ReadonlyArray<string> = ['health', 'gold']
 
 const EVENT_TEXTS: ReadonlyArray<string> = [
@@ -93,11 +82,15 @@ export function generateEvents(rng: Random, count: number): GameEvent[] {
   return events
 }
 
-function makeDeck(
+// Builds a fresh deck. Narrative cards overwrite a hex's terrain/event, so they
+// draw their targets from the scenario's actual terrains and the given event ids
+// — falling back to none when there is nothing to point at.
+export function generateDeck(
   rng: Random,
   deckSize: number,
   narrativeCount: number,
-  eventIds: string[],
+  eventIds: readonly string[],
+  terrains: readonly string[],
 ): Card[] {
   const cards: Card[] = []
   const standardCount = Math.max(0, deckSize - narrativeCount)
@@ -115,39 +108,33 @@ function makeDeck(
       text: NARRATIVE_TEXTS[i % NARRATIVE_TEXTS.length] as string,
       type: 'narrative',
       weight: 0,
-      overwrite_terrain: rng.pick(TERRAINS),
+      overwrite_terrain: terrains.length > 0 ? (rng.pick(terrains) as string) : undefined,
       overwrite_event_id: eventIds.length > 0 ? (rng.pick(eventIds) as string) : null,
     })
   }
   return cards
 }
 
-// Seeds a fresh scenario the author then shapes by hand. The map is blank: only
-// the starting cell is authored (so the scenario is minimally valid); the rest of
-// the canvas is filled in by the editor via the shape brush and "fill cells". A
-// starter terrain palette, event pool and deck are generated as authoring material.
-// mapWidth/mapHeight describe the canvas the editor lays out — generation itself
-// only places the start cell.
-export function generateBlankScenario(params: GeneratorParams = DEFAULT_PARAMS): Scenario {
-  const rng = createRandom(params.seed)
+// A blank-slate scenario the author shapes by hand: a single starting cell with
+// the starter terrain, no events and no deck. The editor lays a 3×3 ghost canvas
+// over it; everything else (more terrain, shape, fill, events, deck) is authored
+// or generated afterward.
+export function generateBlankScenario(): Scenario {
   const start: Coord = { q: 0, r: 0 }
-  const firstTerrain = TERRAINS[0] as string
-  const events = generateEvents(rng, params.eventCount)
-  const eventIds = events.map((e) => e.id)
-  const deck = makeDeck(rng, params.deckSize, params.narrativeCount, eventIds)
-  const initialHandSize = Math.min(5, Math.max(1, params.deckSize - params.narrativeCount))
   return {
-    id: `scenario-${params.seed}`,
-    metadata: { title: 'Default Scenario' },
-    terrains: DEFAULT_TERRAINS.map((t) => ({ ...t })),
-    mapData: { cells: [{ q: start.q, r: start.r, terrain: firstTerrain, event_id: null, is_revealed: true }] },
-    eventsData: events,
-    playerDeck: deck,
+    id: `scenario-${Date.now()}`,
+    metadata: { title: 'Untitled Scenario' },
+    terrains: [{ ...STARTER_TERRAIN }],
+    mapData: {
+      cells: [{ q: start.q, r: start.r, terrain: STARTER_TERRAIN.name, event_id: null, is_revealed: true }],
+    },
+    eventsData: [],
+    playerDeck: [],
     initial_resources: { health: 10, gold: 5 },
     starting_position: start,
     narrative_intervention_interval: 5,
-    initial_hand_size: initialHandSize,
-    draw_card_count_per_turn: rng.int(1, 3),
-    hand_limit: initialHandSize * 2,
+    initial_hand_size: 0,
+    draw_card_count_per_turn: 1,
+    hand_limit: 5,
   }
 }
