@@ -1,12 +1,28 @@
-export interface Rng {
+// Deterministic seeded RNG (mulberry32). The whole internal state is a single
+// 32-bit integer exposed via `state`, so a session's generator can be persisted
+// and resumed exactly (restoreRandom) — this is what makes save/load reproducible
+// and closes reroll abuse.
+export interface Random {
   next(): number
   int(min: number, max: number): number
   pick<T>(items: readonly T[]): T
   shuffle<T>(items: readonly T[]): T[]
+  readonly state: number
 }
 
-export function createRng(seed: number): Rng {
-  let state = (seed | 0) || 1
+export function createRandom(seed: number): Random {
+  return fromState((seed | 0) || 1)
+}
+
+// Resume a generator from a previously captured `state` — continues the exact
+// same stream. Unlike createRandom it does not normalize the value, so the
+// position is restored bit-for-bit.
+export function restoreRandom(state: number): Random {
+  return fromState(state | 0)
+}
+
+function fromState(initial: number): Random {
+  let state = initial
   function next(): number {
     state = (state + 0x6d2b79f5) | 0
     let t = state
@@ -31,5 +47,13 @@ export function createRng(seed: number): Rng {
     }
     return out
   }
-  return { next, int, pick, shuffle }
+  return {
+    next,
+    int,
+    pick,
+    shuffle,
+    get state() {
+      return state
+    },
+  }
 }
