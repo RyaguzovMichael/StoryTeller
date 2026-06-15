@@ -116,6 +116,15 @@ function onClear(): void {
 function onRecenter(): void {
   store.editor.recenter()
 }
+
+const issueTooltip = computed(() =>
+  store.issues.length ? store.issues.map((issue) => issue.message).join('\n') : 'Save scenario',
+)
+
+function onSave(): void {
+  store.save()
+  notifications.push('Scenario saved.', 'info')
+}
 </script>
 
 <template>
@@ -147,6 +156,14 @@ function onRecenter(): void {
           <button type="button" @click="onFill">Fill blank cells</button>
           <button type="button" @click="showGenerate = true">Regenerate…</button>
           <button type="button" @click="onClear">Clear scenario</button>
+          <button
+            type="button"
+            :disabled="store.issues.length > 0"
+            :title="issueTooltip"
+            @click="onSave"
+          >
+            {{ store.issues.length ? '⚠ ' : '' }}Save
+          </button>
         </div>
         <div class="seed-group">
           <label class="seed">Seed<input v-model.number="store.seed" type="number" /></label>

@@ -46,7 +46,7 @@ onMounted(syncFromEditor)
 .json-tab {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 97%;
   min-height: 0;
   gap: 0.5rem;
   padding: 0.75rem;
