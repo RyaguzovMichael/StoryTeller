@@ -7,7 +7,7 @@ import type {
   Scenario,
 } from '@/engine/types/scenario'
 import { coordKey, enumerateRadius } from '@/engine/hexGrid'
-import { createRng, type Rng } from '@/engine/rng'
+import { createRandom, type Random } from '@/engine/random'
 
 export interface GeneratorParams {
   mapRadius: number
@@ -61,7 +61,7 @@ const NARRATIVE_TEXTS: ReadonlyArray<string> = [
   'A pact is made in whispers.',
 ]
 
-function makeOutcome(rng: Rng, sign: 1 | -1, intensity: number): Outcome {
+function makeOutcome(rng: Random, sign: 1 | -1, intensity: number): Outcome {
   const key = rng.pick(RESOURCE_KEYS)
   const magnitude = sign * (rng.int(1, intensity))
   return {
@@ -73,7 +73,7 @@ function makeOutcome(rng: Rng, sign: 1 | -1, intensity: number): Outcome {
   }
 }
 
-function makeEvents(rng: Rng, count: number): GameEvent[] {
+function makeEvents(rng: Random, count: number): GameEvent[] {
   const events: GameEvent[] = []
   for (let i = 0; i < count; i++) {
     const difficulty = rng.int(3, 8)
@@ -89,7 +89,7 @@ function makeEvents(rng: Rng, count: number): GameEvent[] {
   return events
 }
 
-function makeCells(rng: Rng, radius: number, eventIds: string[], start: Coord): HexCell[] {
+function makeCells(rng: Random, radius: number, eventIds: string[], start: Coord): HexCell[] {
   const coords = enumerateRadius(radius)
   const startKey = coordKey(start)
   return coords.map((c) => {
@@ -107,7 +107,7 @@ function makeCells(rng: Rng, radius: number, eventIds: string[], start: Coord): 
 }
 
 function makeDeck(
-  rng: Rng,
+  rng: Random,
   deckSize: number,
   narrativeCount: number,
   eventIds: string[],
@@ -136,12 +136,13 @@ function makeDeck(
 }
 
 export function generateScenario(params: GeneratorParams = DEFAULT_PARAMS): Scenario {
-  const rng = createRng(params.seed)
+  const rng = createRandom(params.seed)
   const start: Coord = { q: 0, r: 0 }
   const events = makeEvents(rng, params.eventCount)
   const eventIds = events.map((e) => e.id)
   const cells = makeCells(rng, params.mapRadius, eventIds, start)
   const deck = makeDeck(rng, params.deckSize, params.narrativeCount, eventIds)
+  const initialHandSize = Math.min(5, Math.max(1, params.deckSize - params.narrativeCount))
   return {
     id: `scenario-${params.seed}`,
     metadata: { title: 'Default Scenario' },
@@ -151,6 +152,8 @@ export function generateScenario(params: GeneratorParams = DEFAULT_PARAMS): Scen
     initial_resources: { health: 10, gold: 5 },
     starting_position: start,
     narrative_intervention_interval: 5,
-    initial_hand_size: Math.min(5, Math.max(1, params.deckSize - params.narrativeCount)),
+    initial_hand_size: initialHandSize,
+    draw_card_count_per_turn: rng.int(1, 3),
+    hand_limit: initialHandSize * 2,
   }
 }

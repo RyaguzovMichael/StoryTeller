@@ -34,46 +34,43 @@ function makeScenario(): Scenario {
     starting_position: { q: 0, r: 0 },
     narrative_intervention_interval: 3,
     initial_hand_size: 2,
+    draw_card_count_per_turn: 2,
+    hand_limit: 2,
   }
 }
 
-// Builds an initialized engine and records every event it emits.
+// Builds a loaded engine (seeded for determinism) and records every emitted event.
 function setup() {
   const state = createEmptyState()
   const engine = new GameEngine(state)
   const events: EngineEvent[] = []
   engine.onEvent((event) => events.push(event))
-  engine.load(createGameState(makeScenario()))
+  engine.load(createGameState(makeScenario(), 1))
   return { engine, state, events }
 }
 
 describe('GameEngine.load', () => {
-  it('runs one-time setup for a freshly mapped scenario', () => {
+  it('hydrates the state in place and asks to persist (no setup, no reset)', () => {
     const { state, events } = setup()
 
-    expect(state.initialized).toBe(true)
     expect(state.hand).toHaveLength(2)
     expect(state.drawPile).toHaveLength(1)
     expect(state.cells.find((c) => c.q === 0 && c.r === 0)?.is_revealed).toBe(true)
-    expect(events.some((e) => e.kind === 'reset')).toBe(true)
     expect(events.some((e) => e.kind === 'persist')).toBe(true)
+    expect(events.some((e) => (e as { kind: string }).kind === 'reset')).toBe(false)
   })
 
-  it('loads an already-initialized save untouched (no re-deal, no events)', () => {
+  it('loads a save as-is without re-dealing', () => {
     const fresh = createEmptyState()
-    new GameEngine(fresh).load(createGameState(makeScenario()))
-    const saved = JSON.parse(JSON.stringify(fresh))
-    saved.hand = [] // tamper: prove no re-deal
+    new GameEngine(fresh).load(createGameState(makeScenario(), 1))
+    const saved = createGameState(makeScenario(), 1)
+    saved.hand = [] // tamper: prove no re-deal happens on load
 
     const target = createEmptyState()
     const engine = new GameEngine(target)
-    const events: EngineEvent[] = []
-    engine.onEvent((event) => events.push(event))
     engine.load(saved)
 
-    expect(target.initialized).toBe(true)
-    expect(target.hand).toEqual([]) // setup did not run again
-    expect(events).toEqual([]) // already initialized → no setup signals
+    expect(target.hand).toEqual([])
   })
 })
 
@@ -84,7 +81,7 @@ describe('GameEngine.move', () => {
 
     engine.move({ q: 1, r: 0 })
 
-    expect(state.position).toEqual({ q: 1, r: 0 })
+    expect(state.playerPosition).toEqual({ q: 1, r: 0 })
     expect(state.phase).toBe('draw')
     expect(state.currentEvent?.id).toBe('ev-1')
     expect(state.cells.find((c) => c.q === 1 && c.r === 0)?.is_revealed).toBe(true)
@@ -95,7 +92,7 @@ describe('GameEngine.move', () => {
     const { engine, state } = setup()
     engine.move({ q: 1, r: 0 }) // now in draw phase
     engine.move({ q: 0, r: 0 })
-    expect(state.position).toEqual({ q: 1, r: 0 })
+    expect(state.playerPosition).toEqual({ q: 1, r: 0 })
   })
 })
 
@@ -138,6 +135,18 @@ describe('GameEngine.confirmPlay', () => {
     expect(events.some((e) => e.kind === 'persist')).toBe(true)
   })
 
+  it('returns played cards to the (reshuffled) draw pile', () => {
+    const { engine, state } = setup()
+    engine.move({ q: 1, r: 0 })
+    for (const card of state.hand.slice()) engine.playCard(card)
+
+    engine.confirmPlay()
+
+    // All three standard cards are accounted for across hand + draw pile.
+    const all = [...state.hand, ...state.drawPile].map((c) => c.id).sort()
+    expect(all).toEqual(['c1', 'c2', 'c3'])
+  })
+
   it('ends the game when a resource is depleted', () => {
     const { engine, state, events } = setup()
     engine.move({ q: 1, r: 0 })
@@ -151,7 +160,7 @@ describe('GameEngine.confirmPlay', () => {
     expect(events.some((e) => e.kind === 'game-over')).toBe(true)
   })
 
-  it('never refills the hand beyond the maximum', () => {
+  it('never refills the hand beyond the hand limit', () => {
     const { engine, state } = setup()
     engine.move({ q: 1, r: 0 })
     for (const card of state.hand.slice()) engine.playCard(card)
@@ -171,7 +180,7 @@ describe('GameEngine.onEvent', () => {
     const persist = persistEvents[persistEvents.length - 1]
     expect(persist).toBeDefined()
     expect(persist?.state).toBe(state)
-    expect(persist?.state.position).toEqual({ q: 1, r: 0 })
+    expect(persist?.state.playerPosition).toEqual({ q: 1, r: 0 })
   })
 
   it('stops delivering after unsubscribe', () => {

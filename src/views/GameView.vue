@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import HexGrid from '@/components/board/HexGrid.vue'
 import PlayerHand from '@/components/cards/PlayerHand.vue'
@@ -8,16 +8,18 @@ import NarrativeCardDrop from '@/components/cards/NarrativeCardDrop.vue'
 import ResourceBar from '@/components/hud/ResourceBar.vue'
 import { useGame } from '@/game/useGame'
 import { useGameEffects } from '@/game/useGameEffects'
-import { clearGame, loadGame, loadOrCreateScenario } from '@/infrastructure/storage'
+import { useNotificationStore } from '@/notifications/notificationStore'
+import { clearGame, loadGame } from '@/infrastructure/storage'
+import { loadOrCreateScenario } from '@/scenarioSource'
 import { createGameState } from '@/engine/createGameState'
 import type { Card, Coord } from '@/engine/types/scenario'
 
 const game = useGame()
+const notifications = useNotificationStore()
 const {
-  initialized,
   phase,
   resources,
-  position,
+  playerPosition,
   cells,
   hand,
   tableau,
@@ -25,12 +27,16 @@ const {
   currentEvent,
 } = storeToRefs(game)
 
+// Whether a game has been loaded yet. "Empty" only exists between store creation
+// and this view's onMounted, so the loading guard is the view's concern.
+const ready = ref(false)
+
 useGameEffects()
 
 onMounted(() => {
   // Resume an in-progress save for this story if one exists; otherwise (no save,
-  // a save for another story, or a finished game) map the scenario into a fresh
-  // game. The engine performs the one-time setup on the fresh state.
+  // a save for another story, or a finished game) map the scenario into a fresh,
+  // ready-to-play game.
   const scenario = loadOrCreateScenario()
   const saved = loadGame()
   if (saved && saved.storyId === scenario.id && saved.phase !== 'game-over') {
@@ -38,11 +44,13 @@ onMounted(() => {
   } else {
     game.engine.load(createGameState(scenario))
   }
+  ready.value = true
 })
 
 // Discards the current save and starts the story over from its definition.
 function onNewGame(): void {
   clearGame()
+  notifications.clear()
   game.engine.load(createGameState(loadOrCreateScenario()))
 }
 
@@ -99,17 +107,17 @@ const dragLocked = computed<boolean>(
           <button type="button" class="new-game" @click="onNewGame">New game</button>
         </nav>
       </div>
-      <ResourceBar v-if="initialized" :resources="resources" />
+      <ResourceBar v-if="ready" :resources="resources" />
     </header>
 
-    <p v-if="!initialized" class="loading-hint">Loading story…</p>
+    <p v-if="!ready" class="loading-hint">Loading story…</p>
 
     <template v-else>
     <section class="board-area">
       <div class="board-frame">
         <HexGrid
           :cells="cells"
-          :player-position="position"
+          :player-position="playerPosition"
           :highlight-set="game.reachable"
           :drop-mode="phase === 'narrative-intervention'"
           :dimmed="eventOpen"

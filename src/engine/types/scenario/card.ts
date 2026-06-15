@@ -1,4 +1,4 @@
-export type CardType = 'standard' | 'narrative'
+export type PlayerDeck = Card[]
 
 export interface Card {
   id: string
@@ -9,4 +9,4 @@ export interface Card {
   overwrite_event_id?: string | null
 }
 
-export type PlayerDeck = Card[]
+export type CardType = 'standard' | 'narrative'

@@ -1,25 +1,22 @@
 import type { Card, Coord, GameEvent, HexCell } from '../scenario'
+import { createRandom, type Random } from '../../random'
 import type { GamePhase } from './phase'
 
-// The full runtime state the engine owns while a story is being played. The
-// engine knows nothing about Scenario: it is handed a ready GameState (either a
-// loaded save or one mapped from a scenario by createGameState) and only applies
-// rules to it. `currentEvent` is the resolved event object, not an id.
+// The full runtime state the engine owns while a story is being played. This is
+// a domain model, not a DTO: `random` is a live generator object, not a plain
+// number — persistence flattens it via toDTO/fromDTO (see infrastructure/storage).
 export interface GameState {
-  // False until the engine has run its one-time setup (shuffle/deal/reveal) on a
-  // freshly mapped scenario. The host must not render game data while false.
-  initialized: boolean
-  // Mapped from the scenario once, then treated as read-only during play.
   storyId: string
   storyMetadata: { title: string }
   eventsById: Record<string, GameEvent>
   narrativeCardTemplates: Card[]
-  initialHandSize: number
   narrativeInterventionInterval: number
-  // Runtime, mutated as the game is played.
+  drawCardCountPerTurn: number
+  handLimit: number
+  random: Random
   phase: GamePhase
   resources: Record<string, number>
-  position: Coord
+  playerPosition: Coord
   cells: HexCell[]
   drawPile: Card[]
   hand: Card[]
@@ -31,16 +28,17 @@ export interface GameState {
 
 export function createEmptyState(): GameState {
   return {
-    initialized: false,
     storyId: '',
     storyMetadata: { title: '' },
     eventsById: {},
     narrativeCardTemplates: [],
-    initialHandSize: 0,
     narrativeInterventionInterval: 0,
+    drawCardCountPerTurn: 0,
+    handLimit: 0,
+    random: createRandom(1),
     phase: 'movement',
     resources: {},
-    position: { q: 0, r: 0 },
+    playerPosition: { q: 0, r: 0 },
     cells: [],
     drawPile: [],
     hand: [],

@@ -19,9 +19,6 @@ export function useGameEffects(): void {
       case 'game-over':
         notifications.push(`Game over: ${event.reason}.`, 'game-over')
         break
-      case 'reset':
-        notifications.clear()
-        break
       case 'persist':
         saveGame(event.state)
         break

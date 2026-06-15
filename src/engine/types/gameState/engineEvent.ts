@@ -7,5 +7,4 @@ import type { GameState } from './gameState'
 export type EngineEvent =
   | { kind: 'outcome'; text: string }
   | { kind: 'game-over'; reason: string }
-  | { kind: 'reset' }
   | { kind: 'persist'; state: GameState }

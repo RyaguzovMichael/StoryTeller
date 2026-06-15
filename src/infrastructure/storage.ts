@@ -1,18 +1,22 @@
 import type { Scenario } from '@/engine/types/scenario'
 import type { GameState } from '@/engine/types/gameState'
-import { generateScenario, DEFAULT_PARAMS } from '@/engine/scenarioGenerator'
+import { restoreRandom } from '@/engine/random'
 
 const SCENARIO_KEY = 'storyteller:scenario:v1'
-const SAVE_KEY = 'storyteller:save:v1'
+const SAVE_KEY = 'storyteller:save:v2'
 
-// A serialized GameState. Branded so a raw string can't be mistaken for one:
-// only serializeGame produces it. Serialization lives here, not in the engine —
-// the engine hands out a GameState and knows nothing about how it is stored.
-declare const savedGameBrand: unique symbol
-type SavedGame = string & { readonly [savedGameBrand]: true }
+// GameState is a domain model with a live `random` generator; on disk we store a
+// flat DTO where the generator is collapsed to its serializable `randomState`.
+type GameStateDTO = Omit<GameState, 'random'> & { randomState: number }
 
-function serializeGame(state: GameState): SavedGame {
-  return JSON.stringify(state) as SavedGame
+function toDTO(state: GameState): GameStateDTO {
+  const { random, ...rest } = state
+  return { ...rest, randomState: random.state }
+}
+
+function fromDTO(dto: GameStateDTO): GameState {
+  const { randomState, ...rest } = dto
+  return { ...rest, random: restoreRandom(randomState) }
 }
 
 export function loadScenario(): Scenario | null {
@@ -31,14 +35,6 @@ export function saveScenario(scenario: Scenario): void {
   localStorage.setItem(SCENARIO_KEY, JSON.stringify(scenario))
 }
 
-export function loadOrCreateScenario(): Scenario {
-  const existing = loadScenario()
-  if (existing) return existing
-  const generated = generateScenario(DEFAULT_PARAMS)
-  saveScenario(generated)
-  return generated
-}
-
 // Save-game store: the in-progress GameState, persisted separately from the
 // story definition so playing never mutates the authored scenario.
 export function loadGame(): GameState | null {
@@ -46,15 +42,15 @@ export function loadGame(): GameState | null {
     const raw = localStorage.getItem(SAVE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as unknown
-    if (!isGameState(parsed)) return null
-    return parsed
+    if (!isGameStateDTO(parsed)) return null
+    return fromDTO(parsed)
   } catch {
     return null
   }
 }
 
 export function saveGame(state: GameState): void {
-  localStorage.setItem(SAVE_KEY, serializeGame(state))
+  localStorage.setItem(SAVE_KEY, JSON.stringify(toDTO(state)))
 }
 
 export function clearGame(): void {
@@ -63,8 +59,10 @@ export function clearGame(): void {
 
 // Minimal marker check: "is this one of our saves, or garbage?". Not a full
 // schema validation — bump SAVE_KEY when the shape changes.
-export function isGameState(value: unknown): value is GameState {
-  return !!value && typeof value === 'object' && (value as Record<string, unknown>).initialized === true
+function isGameStateDTO(value: unknown): value is GameStateDTO {
+  if (!value || typeof value !== 'object') return false
+  const v = value as Record<string, unknown>
+  return Array.isArray(v.cells) && typeof v.randomState === 'number'
 }
 
 export function isScenario(value: unknown): value is Scenario {
@@ -79,5 +77,7 @@ export function isScenario(value: unknown): value is Scenario {
   if (!v.starting_position || typeof v.starting_position !== 'object') return false
   if (typeof v.narrative_intervention_interval !== 'number') return false
   if (typeof v.initial_hand_size !== 'number') return false
+  if (typeof v.draw_card_count_per_turn !== 'number') return false
+  if (typeof v.hand_limit !== 'number') return false
   return true
 }
