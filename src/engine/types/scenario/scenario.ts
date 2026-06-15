@@ -1,4 +1,4 @@
-import type { Coord } from './coord'
+import type { Coord } from '@/engine/hexGrid'
 import type { MapConfig } from './hexCell'
 import type { EventPool } from './event'
 import type { PlayerDeck } from './card'

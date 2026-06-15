@@ -12,7 +12,8 @@ import { useNotificationStore } from '@/notifications/notificationStore'
 import { clearGame, loadGame } from '@/infrastructure/gameStorage'
 import { loadOrCreateScenario } from '@/scenarioSource'
 import { createGameState } from '@/engine/createGameState'
-import type { Card, Coord } from '@/engine/types/scenario'
+import type { Card } from '@/engine/types/scenario'
+import type { Coord } from '@/engine/hexGrid'
 
 const game = useGame()
 const notifications = useNotificationStore()

@@ -1,4 +1,5 @@
-import type { Card, Coord, GameEvent, HexCell } from '../scenario'
+import type { Card, GameEvent, HexCell } from '../scenario'
+import type { Coord } from '../../hexGrid'
 import { createRandom, type Random } from '../../random'
 import type { GamePhase } from './phase'
 
