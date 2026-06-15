@@ -2,8 +2,7 @@
 import { computed, ref } from 'vue'
 import HexGrid from '@/components/board/HexGrid.vue'
 import TerrainPalette from '@/components/editor/TerrainPalette.vue'
-import AutogenDrawer from '@/components/editor/AutogenDrawer.vue'
-import RawJsonDrawer from '@/components/editor/RawJsonDrawer.vue'
+import GenerateDialog from '@/components/editor/GenerateDialog.vue'
 import { useScenarioEditor } from '@/editor/useScenarioEditor'
 import { useNotificationStore } from '@/notifications/notificationStore'
 import { coordKey, type Coord } from '@/engine/hexGrid'
@@ -16,6 +15,8 @@ const notifications = useNotificationStore()
 
 const brush = ref<Brush>({ kind: 'inspect' })
 const selected = ref<Coord | null>(null)
+const zoom = ref(1)
+const showGenerate = ref(false)
 
 const startKey = computed(() => coordKey(store.draft.meta.startingPosition))
 const selectedKey = computed(() => (selected.value ? coordKey(selected.value) : undefined))
@@ -90,6 +91,28 @@ function onHexClick(coord: Coord): void {
   }
 }
 
+function onWidth(value: number): void {
+  store.resizeCanvas(value, store.height)
+}
+function onHeight(value: number): void {
+  store.resizeCanvas(store.width, value)
+}
+
+function onFill(): void {
+  try {
+    store.fillCells()
+    notifications.push('Blank cells filled with terrain.', 'info')
+  } catch (err) {
+    notifications.push(err instanceof Error ? err.message : 'Fill failed', 'info')
+  }
+}
+
+function onClear(): void {
+  store.clearScenario()
+  selected.value = null
+  notifications.push('Scenario cleared to a blank canvas.', 'info')
+}
+
 function onRecenter(): void {
   store.editor.recenter()
 }
@@ -99,9 +122,38 @@ function onRecenter(): void {
   <div class="map-tab">
     <div class="left">
       <div class="toolbar">
-        <button type="button" @click="onRecenter">Recenter</button>
-        <span class="hint">Brush: {{ brush.kind }}</span>
+        <div class="tools">
+          <label class="slider">
+            W
+            <input
+              type="range" min="1" max="20" step="1" :value="store.width"
+              @input="onWidth(Number(($event.target as HTMLInputElement).value))"
+            />
+            <span>{{ store.width }}</span>
+          </label>
+          <label class="slider">
+            H
+            <input
+              type="range" min="1" max="20" step="1" :value="store.height"
+              @input="onHeight(Number(($event.target as HTMLInputElement).value))"
+            />
+            <span>{{ store.height }}</span>
+          </label>
+          <label class="slider">
+            Zoom
+            <input v-model.number="zoom" type="range" min="0.4" max="2.5" step="0.1" />
+          </label>
+          <button type="button" @click="onRecenter">Recenter</button>
+          <button type="button" @click="onFill">Fill blank cells</button>
+          <button type="button" @click="showGenerate = true">Regenerate…</button>
+          <button type="button" @click="onClear">Clear scenario</button>
+        </div>
+        <div class="seed-group">
+          <label class="seed">Seed<input v-model.number="store.seed" type="number" /></label>
+          <button type="button" class="dice" title="Random seed" @click="store.randomizeSeed">🎲</button>
+        </div>
       </div>
+
       <div class="grid-wrapper">
         <HexGrid
           :cells="renderCells"
@@ -110,10 +162,12 @@ function onRecenter(): void {
           :blank-keys="blankKeys"
           :selected-key="selectedKey"
           :start-key="startKey"
+          :zoom="zoom"
           editing
           @hex-click="onHexClick"
         />
       </div>
+
       <div v-if="selectedCell" class="inspector">
         <strong>Cell ({{ selectedCell.q }}, {{ selectedCell.r }})</strong>
         <span>terrain: {{ selectedCell.terrain === '' ? '(blank)' : selectedCell.terrain }}</span>
@@ -124,9 +178,6 @@ function onRecenter(): void {
         Cell ({{ selected.q }}, {{ selected.r }}): ghost — not playable.
       </p>
       <p v-else class="inspector empty">Pick the Inspect brush and click a hex to see its state.</p>
-
-      <AutogenDrawer />
-      <RawJsonDrawer />
     </div>
 
     <TerrainPalette
@@ -135,6 +186,8 @@ function onRecenter(): void {
       :events="store.draft.events"
       class="right"
     />
+
+    <GenerateDialog v-if="showGenerate" @close="showGenerate = false" />
   </div>
 </template>
 
@@ -145,22 +198,29 @@ function onRecenter(): void {
   gap: 0;
   height: 100%;
   min-height: 0;
+  background: var(--st-wood-dark);
+  color: var(--st-ink);
 }
 .left {
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
-.map-tab {
-  background: var(--st-wood-dark);
-  color: var(--st-ink);
-}
 .toolbar {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
   border-bottom: 1px solid var(--st-wood-border);
+  flex-wrap: wrap;
+}
+.tools,
+.seed-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 .toolbar button {
   border: 1px solid var(--st-wood-border);
@@ -170,9 +230,38 @@ function onRecenter(): void {
   padding: 0.35rem 0.7rem;
   cursor: pointer;
 }
-.hint {
-  font-size: 0.85rem;
+.slider {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
   color: var(--st-gold-muted);
+}
+.slider input[type='range'] {
+  width: 90px;
+}
+.slider span {
+  width: 1.6rem;
+  text-align: right;
+  color: var(--st-ink);
+}
+.seed {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--st-gold-muted);
+}
+.seed input {
+  width: 6rem;
+  padding: 0.3rem;
+  background: var(--st-parchment);
+  color: var(--st-parchment-ink);
+  border: 1px solid var(--st-parchment-border);
+  border-radius: 4px;
+}
+.dice {
+  padding: 0.3rem 0.5rem !important;
 }
 .grid-wrapper {
   flex: 1;

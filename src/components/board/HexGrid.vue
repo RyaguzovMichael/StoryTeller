@@ -20,6 +20,8 @@ const props = defineProps<{
   // blank = a playable cell with no terrain yet. Both render muted and label-less.
   ghostKeys?: Set<string>
   blankKeys?: Set<string>
+  // Editor-only preview zoom (no effect in camera/game mode). >1 zooms in.
+  zoom?: number
 }>()
 
 const emit = defineEmits<{
@@ -69,7 +71,18 @@ const cameraCenter = computed(() => {
 // Without a player (editor preview), frame the whole map regardless of its shape.
 const viewBox = computed(() => {
   if (!props.playerPosition) {
-    return layout.value.viewBoxForCells(props.cells)
+    // Editor preview: frame the whole map, then shrink the viewBox around its
+    // center by the zoom factor (zoom > 1 ⇒ smaller viewBox ⇒ closer).
+    const zoom = props.zoom ?? 1
+    const padding = 8
+    const bounds = layout.value.boundsForCells(props.cells)
+    const framedWidth = bounds.maxX - bounds.minX + 2 * padding
+    const framedHeight = bounds.maxY - bounds.minY + 2 * padding
+    const centerX = (bounds.minX + bounds.maxX) / 2
+    const centerY = (bounds.minY + bounds.maxY) / 2
+    const zoomedWidth = framedWidth / zoom
+    const zoomedHeight = framedHeight / zoom
+    return `${centerX - zoomedWidth / 2} ${centerY - zoomedHeight / 2} ${zoomedWidth} ${zoomedHeight}`
   }
   const viewWidth = containerW.value / VIEW_SCALE
   const viewHeight = containerH.value / VIEW_SCALE

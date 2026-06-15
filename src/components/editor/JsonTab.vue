@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { isScenario } from '@/infrastructure/scenarioStorage'
 import { useScenarioEditor } from '@/editor/useScenarioEditor'
 import { useNotificationStore } from '@/notifications/notificationStore'
@@ -7,16 +7,10 @@ import { useNotificationStore } from '@/notifications/notificationStore'
 const store = useScenarioEditor()
 const notifications = useNotificationStore()
 
-const open = ref(false)
 const text = ref('')
 
 function syncFromEditor(): void {
   text.value = JSON.stringify(store.draft.toScenario(), null, 2)
-}
-
-function onToggle(): void {
-  open.value = !open.value
-  if (open.value) syncFromEditor()
 }
 
 function onApply(): void {
@@ -34,65 +28,53 @@ function onApply(): void {
     notifications.push(`Invalid JSON: ${message}`, 'info')
   }
 }
+
+onMounted(syncFromEditor)
 </script>
 
 <template>
-  <section class="drawer">
-    <button type="button" class="drawer-toggle" @click="onToggle">
-      {{ open ? '▾' : '▸' }} Raw JSON
-    </button>
-    <div v-if="open" class="drawer-body">
-      <textarea v-model="text" spellcheck="false" />
-      <div class="actions">
-        <button type="button" @click="syncFromEditor">Refresh from editor</button>
-        <button type="button" class="primary" @click="onApply">Apply JSON</button>
-      </div>
+  <section class="json-tab">
+    <div class="actions">
+      <button type="button" @click="syncFromEditor">Refresh from editor</button>
+      <button type="button" class="primary" @click="onApply">Apply JSON</button>
     </div>
+    <textarea v-model="text" spellcheck="false" />
   </section>
 </template>
 
 <style scoped>
-.drawer {
-  border-top: 1px solid var(--st-wood-border);
-  background: var(--st-wood);
-  color: var(--st-ink);
-}
-.drawer-toggle {
-  width: 100%;
-  text-align: left;
-  padding: 0.5rem 0.75rem;
-  border: none;
-  background: var(--st-wood-darkest);
-  color: var(--st-gold);
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-.drawer-body {
-  padding: 0.75rem;
+.json-tab {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 0;
   gap: 0.5rem;
-}
-textarea {
-  font-family: ui-monospace, monospace;
-  font-size: 0.78rem;
-  min-height: 240px;
-  padding: 0.5rem;
-  background: var(--st-parchment);
-  color: var(--st-parchment-ink);
-  border: 1px solid var(--st-parchment-border);
-  border-radius: 4px;
+  padding: 0.75rem;
+  background: var(--st-wood-dark);
+  color: var(--st-ink);
 }
 .actions {
   display: flex;
   gap: 0.5rem;
+}
+textarea {
+  flex: 1;
+  min-height: 0;
+  resize: none;
+  font-family: ui-monospace, monospace;
+  font-size: 0.82rem;
+  padding: 0.75rem;
+  background: var(--st-parchment);
+  color: var(--st-parchment-ink);
+  border: 1px solid var(--st-parchment-border);
+  border-radius: 4px;
 }
 button {
   border: 1px solid var(--st-wood-border);
   border-radius: 4px;
   background: var(--st-wood-darkest);
   color: var(--st-ink);
-  padding: 0.4rem 0.8rem;
+  padding: 0.4rem 0.9rem;
   cursor: pointer;
 }
 button.primary {

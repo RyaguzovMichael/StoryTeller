@@ -1,22 +1,29 @@
 // Vue/Pinia wrapper around the pure ScenarioEditor, mirroring game/useGame.ts:
 // it holds a reactive ScenarioDraft, hands it to the editor, and exposes the
 // editor handle plus derived values (validation issues, terrain colors, the
-// editable canvas bounds). The editor is the sole writer of the draft;
-// components read through `draft`.
+// editable canvas footprint, and the toolbar's width/height/seed). The editor is
+// the sole writer of the draft; components read through `draft`.
 import { computed, reactive, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { ScenarioDraft } from '@/editor/scenarioDraft'
 import { ScenarioEditor } from '@/editor/scenarioEditor'
-import {
-  DEFAULT_PARAMS,
-  generateBlankScenario,
-  generateEvents,
-  type GeneratorParams,
-} from '@/editor/scenarioGenerator'
+import { generateBlankScenario, generateDeck, generateEvents } from '@/editor/scenarioGenerator'
 import { loadScenario, saveScenario } from '@/infrastructure/scenarioStorage'
 import { enumerateRect, neighborsOf, coordKey, recenterCoords, type Coord } from '@/engine/hexGrid'
 import { createRandom } from '@/engine/random'
 import type { HexCell, Scenario } from '@/engine/types/scenario'
+
+// What the "Regenerate…" dialog asks the store to rebuild.
+export interface RegenerateOptions {
+  eventCount: number
+  deckSize: number
+  narrativeCount: number
+  regenerateEvents: boolean
+  regenerateDeck: boolean
+}
+
+const DEFAULT_SIZE = 3
+const DEFAULT_CANVAS = recenterCoords(enumerateRect(DEFAULT_SIZE, DEFAULT_SIZE))
 
 function makeEditor(scenario: Scenario): ScenarioEditor {
   // reactive() so editor mutations re-render the UI; the editor itself is held
@@ -24,14 +31,10 @@ function makeEditor(scenario: Scenario): ScenarioEditor {
   return new ScenarioEditor(reactive(ScenarioDraft.from(scenario)) as ScenarioDraft)
 }
 
-// The footprint the editor paints over: an explicit list of axial coords. Coords
-// without a cell render as ghosts the author can fill. Stored as actual coords
-// (not a bounding box) so the pointy-top row offsets survive — a bbox would be
-// re-expanded into a sheared rhombus on screen.
-const DEFAULT_CANVAS = recenterCoords(enumerateRect(5, 5))
-
 // Footprint for a loaded scenario: its cells plus a one-hex halo of neighbors,
-// so the author can grow the map outward from the authored shape.
+// so the author can grow the map outward from the authored shape. Stored as
+// actual coords (not a bounding box) so the pointy-top row offsets survive — a
+// bbox would be re-expanded into a sheared rhombus on screen.
 function canvasFromCells(cells: readonly HexCell[]): Coord[] {
   if (cells.length === 0) return [...DEFAULT_CANVAS]
   const footprint = new Map<string, Coord>()
@@ -43,14 +46,17 @@ function canvasFromCells(cells: readonly HexCell[]): Coord[] {
 }
 
 export const useScenarioEditor = defineStore('scenarioEditor', () => {
-  // The editor owns generation, so it seeds a default when storage is empty —
+  // The editor owns generation, so it seeds a blank slate when storage is empty —
   // unlike the game, which refuses to invent a story.
   const stored = loadScenario()
-  const initial = stored ?? generateBlankScenario(DEFAULT_PARAMS)
+  const initial = stored ?? generateBlankScenario()
   const editor = shallowRef<ScenarioEditor>(makeEditor(initial))
-  const canvas = ref<Coord[]>(
-    stored ? canvasFromCells(stored.mapData.cells) : [...DEFAULT_CANVAS],
-  )
+  const canvas = ref<Coord[]>(stored ? canvasFromCells(stored.mapData.cells) : [...DEFAULT_CANVAS])
+
+  // Toolbar state: canvas size sliders and the generation seed.
+  const width = ref(DEFAULT_SIZE)
+  const height = ref(DEFAULT_SIZE)
+  const seed = ref(1)
 
   const draft = computed(() => editor.value.draft)
   const issues = computed(() => editor.value.draft.validate())
@@ -65,22 +71,50 @@ export const useScenarioEditor = defineStore('scenarioEditor', () => {
     canvas.value = canvasFromCells(scenario.mapData.cells)
   }
 
-  // Start over: a blank canvas sized W×H of ghosts (only the start cell authored).
-  function newCanvas(params: GeneratorParams): void {
-    const scenario = generateBlankScenario(params)
+  // Full reset: a blank slate (3×3 ghost canvas, one start cell, no events/deck).
+  function clearScenario(): void {
+    const scenario = generateBlankScenario()
     saveScenario(scenario)
     editor.value = makeEditor(scenario)
-    canvas.value = recenterCoords(enumerateRect(params.mapWidth, params.mapHeight))
+    width.value = DEFAULT_SIZE
+    height.value = DEFAULT_SIZE
+    canvas.value = recenterCoords(enumerateRect(DEFAULT_SIZE, DEFAULT_SIZE))
+  }
+
+  // Live, non-destructive: only the ghost footprint changes; authored cells stay
+  // (cells outside the footprint still render via MapTab's fallback).
+  function resizeCanvas(newWidth: number, newHeight: number): void {
+    width.value = newWidth
+    height.value = newHeight
+    canvas.value = recenterCoords(enumerateRect(newWidth, newHeight))
   }
 
   // Assign a random real terrain to every blank cell (authored cells untouched).
   function fillCells(): void {
-    editor.value.fillBlankTerrains(createRandom(Date.now()))
+    editor.value.fillBlankTerrains(createRandom(seed.value))
   }
 
-  // Swap in a fresh event pool; clears events from the map and card overwrites.
-  function regenerateEvents(count: number): void {
-    editor.value.replaceEvents(generateEvents(createRandom(Date.now()), count))
+  // Generate a fresh event pool and/or deck from the seed. Events are rebuilt
+  // first so a regenerated deck can point its narrative cards at the new event ids.
+  function regenerateContent(options: RegenerateOptions): void {
+    const random = createRandom(seed.value)
+    const activeEditor = editor.value
+    let eventIds = activeEditor.draft.events.map((event) => event.id)
+    if (options.regenerateEvents) {
+      const events = generateEvents(random, options.eventCount)
+      activeEditor.replaceEvents(events)
+      eventIds = events.map((event) => event.id)
+    }
+    if (options.regenerateDeck) {
+      const terrains = activeEditor.draft.terrains.map((terrain) => terrain.name)
+      activeEditor.replaceDeck(
+        generateDeck(random, options.deckSize, options.narrativeCount, eventIds, terrains),
+      )
+    }
+  }
+
+  function randomizeSeed(): void {
+    seed.value = Math.floor(Math.random() * 1_000_000_000)
   }
 
   function save(): void {
@@ -93,10 +127,15 @@ export const useScenarioEditor = defineStore('scenarioEditor', () => {
     issues,
     terrainColors,
     canvas,
+    width,
+    height,
+    seed,
     load,
-    newCanvas,
+    clearScenario,
+    resizeCanvas,
     fillCells,
-    regenerateEvents,
+    regenerateContent,
+    randomizeSeed,
     save,
   }
 })
