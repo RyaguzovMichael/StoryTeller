@@ -5,7 +5,7 @@
 import { onScopeDispose } from 'vue'
 import { useGame } from '@/game/useGame'
 import { useNotificationStore } from '@/notifications/notificationStore'
-import { saveGame } from '@/infrastructure/storage'
+import { saveGame } from '@/infrastructure/gameStorage'
 
 export function useGameEffects(): void {
   const game = useGame()

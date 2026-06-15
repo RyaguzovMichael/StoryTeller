@@ -3,7 +3,7 @@
 // load/save) and out of the views (they stay dumb) — this is the one place that
 // ties storage to the editor's generator.
 import type { Scenario } from '@/engine/types/scenario'
-import { loadScenario, saveScenario } from '@/infrastructure/storage'
+import { loadScenario, saveScenario } from '@/infrastructure/scenarioStorage'
 import { generateScenario, DEFAULT_PARAMS } from '@/editor/scenarioGenerator'
 
 export function loadOrCreateScenario(): Scenario {

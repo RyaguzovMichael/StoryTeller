@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import HexGrid from '@/components/board/HexGrid.vue'
 import { useNotificationStore } from '@/notifications/notificationStore'
-import { isScenario, saveScenario } from '@/infrastructure/storage'
+import { isScenario, saveScenario } from '@/infrastructure/scenarioStorage'
 import { loadOrCreateScenario } from '@/scenarioSource'
 import {
   DEFAULT_PARAMS,
