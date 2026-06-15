@@ -1,10 +1,9 @@
 import { describe, it, expect, beforeEach, beforeAll, afterAll, vi } from 'vitest'
 
-import { saveGame, loadGame, clearGame, isScenario } from '@/infrastructure/storage'
+import { saveGame, loadGame, clearGame } from '@/infrastructure/gameStorage'
 import { createEmptyState } from '@/engine/types/gameState'
 import { createRandom } from '@/engine/random'
 import type { GameState } from '@/engine/types/gameState'
-import type { Scenario } from '@/engine/types/scenario'
 
 const SAVE_KEY = 'storyteller:save:v2'
 
@@ -73,33 +72,5 @@ describe('storage save/load', () => {
   it('returns null for data that is not one of our saves', () => {
     localStorage.setItem(SAVE_KEY, '{}')
     expect(loadGame()).toBeNull()
-  })
-})
-
-describe('isScenario', () => {
-  function aScenario(): Scenario {
-    return {
-      id: 's',
-      metadata: { title: 't' },
-      mapData: { cells: [] },
-      eventsData: [],
-      playerDeck: [],
-      initial_resources: {},
-      starting_position: { q: 0, r: 0 },
-      narrative_intervention_interval: 5,
-      initial_hand_size: 3,
-      draw_card_count_per_turn: 2,
-      hand_limit: 6,
-    }
-  }
-
-  it('accepts a full scenario', () => {
-    expect(isScenario(aScenario())).toBe(true)
-  })
-
-  it('rejects a scenario missing the new fields', () => {
-    const { draw_card_count_per_turn, ...partial } = aScenario()
-    void draw_card_count_per_turn
-    expect(isScenario(partial)).toBe(false)
   })
 })

@@ -4,7 +4,7 @@ import type { GamePhase } from './phase'
 
 // The full runtime state the engine owns while a story is being played. This is
 // a domain model, not a DTO: `random` is a live generator object, not a plain
-// number — persistence flattens it via toDTO/fromDTO (see infrastructure/storage).
+// number — persistence flattens it via toDTO/fromDTO (see infrastructure/gameStorage).
 export interface GameState {
   storyId: string
   storyMetadata: { title: string }
