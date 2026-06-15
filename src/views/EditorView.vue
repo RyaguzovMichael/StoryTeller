@@ -1,162 +1,40 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
-import HexGrid from '@/components/board/HexGrid.vue'
+import { ref } from 'vue'
+import MapTab from '@/components/editor/MapTab.vue'
+import { useScenarioEditor } from '@/editor/useScenarioEditor'
 import { useNotificationStore } from '@/notifications/notificationStore'
-import { isScenario, loadScenario, saveScenario } from '@/infrastructure/scenarioStorage'
-import {
-  DEFAULT_PARAMS,
-  generateScenario,
-  type GeneratorParams,
-} from '@/editor/scenarioGenerator'
-import { recenterScenario } from '@/editor/mapTransforms'
-import type { Scenario } from '@/engine/types/scenario'
 
+const store = useScenarioEditor()
 const notifications = useNotificationStore()
-const scenario = ref<Scenario | null>(null)
-const jsonText = ref<string>('')
 
-const params = reactive<GeneratorParams>({ ...DEFAULT_PARAMS })
+type Tab = 'map' | 'content'
+const tab = ref<Tab>('map')
 
-onMounted(() => {
-  // The editor owns scenario generation, so it may seed a default to author from
-  // when storage is empty — unlike the game, which refuses to invent a story.
-  const s = loadScenario() ?? generateScenario(DEFAULT_PARAMS)
-  setScenario(s)
-})
-
-function setScenario(s: Scenario): void {
-  scenario.value = s
-  jsonText.value = JSON.stringify(s, null, 2)
-  params.deckSize = s.playerDeck.length
-  params.narrativeCount = s.playerDeck.filter((c) => c.type === 'narrative').length
-  params.eventCount = s.eventsData.length
+function onSave(): void {
+  store.save()
+  notifications.push('Scenario saved.', 'info')
 }
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, Math.floor(value)))
-}
-
-function onRegenerate(): void {
-  const safe: GeneratorParams = {
-    mapRadius: clamp(params.mapRadius, 1, 6),
-    deckSize: clamp(params.deckSize, 3, 20),
-    eventCount: clamp(params.eventCount, 1, 12),
-    narrativeCount: clamp(params.narrativeCount, 0, clamp(params.deckSize, 3, 20)),
-    seed: Math.floor(params.seed) || 1,
-  }
-  const generated = generateScenario(safe)
-  saveScenario(generated)
-  setScenario(generated)
-  notifications.push('Scenario regenerated and saved.', 'info')
-}
-
-function onSaveJson(): void {
-  try {
-    const parsed = JSON.parse(jsonText.value) as unknown
-    if (!isScenario(parsed)) {
-      notifications.push('Invalid scenario: shape does not match the schema.', 'info')
-      return
-    }
-    const centered = recenterScenario(parsed)
-    saveScenario(centered)
-    setScenario(centered)
-    notifications.push('Scenario JSON saved.', 'info')
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'unknown error'
-    notifications.push(`Invalid JSON: ${message}`, 'info')
-  }
-}
-
-function onCenterMap(): void {
-  if (!scenario.value) return
-  const centered = recenterScenario(scenario.value)
-  saveScenario(centered)
-  setScenario(centered)
-  notifications.push('Map recentered around (0,0) and saved.', 'info')
-}
-
-const previewCells = computed(() => scenario.value?.mapData.cells ?? [])
 </script>
 
 <template>
   <main class="editor-view">
     <header class="top-bar">
-      <h1>Editor</h1>
-      <nav>
+      <div class="tabs">
+        <button type="button" :class="{ active: tab === 'map' }" @click="tab = 'map'">Map</button>
+        <button type="button" :class="{ active: tab === 'content' }" @click="tab = 'content'">Content</button>
+      </div>
+      <div class="actions">
+        <span v-if="store.issues.length" class="issues" :title="store.issues.map((i) => i.message).join('\n')">
+          ⚠ {{ store.issues.length }} issue(s)
+        </span>
+        <button type="button" class="primary" @click="onSave">Save</button>
         <RouterLink to="/game">Play</RouterLink>
-      </nav>
+      </div>
     </header>
 
-    <section class="form-card">
-      <h2>Generate from sizes</h2>
-      <div class="form-grid">
-        <label>
-          Map radius
-          <input
-            v-model.number="params.mapRadius"
-            type="number"
-            min="1"
-            max="6"
-            step="1"
-          />
-        </label>
-        <label>
-          Deck size
-          <input
-            v-model.number="params.deckSize"
-            type="number"
-            min="3"
-            max="20"
-            step="1"
-          />
-        </label>
-        <label>
-          Event count
-          <input
-            v-model.number="params.eventCount"
-            type="number"
-            min="1"
-            max="12"
-            step="1"
-          />
-        </label>
-        <label>
-          Narrative cards
-          <input
-            v-model.number="params.narrativeCount"
-            type="number"
-            min="0"
-            :max="params.deckSize"
-            step="1"
-          />
-        </label>
-        <label>
-          Seed
-          <input v-model.number="params.seed" type="number" step="1" />
-        </label>
-      </div>
-      <button type="button" class="primary" @click="onRegenerate">
-        Regenerate &amp; Save
-      </button>
-    </section>
-
-    <section class="split">
-      <div class="json-pane">
-        <h2>Scenario JSON</h2>
-        <textarea v-model="jsonText" spellcheck="false" />
-        <button type="button" class="primary" @click="onSaveJson">
-          Save JSON
-        </button>
-      </div>
-      <div class="preview-pane">
-        <h2>Preview</h2>
-        <div class="grid-wrapper">
-          <HexGrid :cells="previewCells" />
-        </div>
-        <button type="button" class="primary" @click="onCenterMap">
-          Center map
-        </button>
-      </div>
+    <section class="tab-body">
+      <MapTab v-if="tab === 'map'" />
+      <div v-else class="placeholder">Content editor coming next.</div>
     </section>
   </main>
 </template>
@@ -165,72 +43,55 @@ const previewCells = computed(() => scenario.value?.mapData.cells ?? [])
 .editor-view {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding: 1rem;
-  max-width: 1100px;
-  margin: 0 auto;
+  height: 100vh;
 }
 .top-bar {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #ccc;
 }
-.top-bar h1 {
-  margin: 0;
-}
-.form-card {
-  border: 1px solid #aaa;
-  padding: 1rem;
-  border-radius: 6px;
-  background: #fafafa;
-}
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-label {
+.tabs {
   display: flex;
-  flex-direction: column;
   gap: 0.25rem;
-  font-size: 0.9rem;
 }
-input[type='number'] {
-  padding: 0.35rem;
-  font-size: 1rem;
+.tabs button {
+  border: 1px solid #ccc;
+  background: #f4f4f4;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  border-radius: 4px;
 }
-button.primary {
+.tabs button.active {
+  background: #0033aa;
+  color: white;
+  border-color: #0033aa;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.issues {
+  color: #aa5500;
+  font-size: 0.85rem;
+  cursor: help;
+}
+.actions .primary {
   background: #0033aa;
   color: white;
   border: none;
-  padding: 0.5rem 1rem;
+  padding: 0.4rem 1rem;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.95rem;
 }
-.split {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+.tab-body {
+  flex: 1;
+  min-height: 0;
 }
-.json-pane,
-.preview-pane {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-textarea {
-  font-family: ui-monospace, monospace;
-  font-size: 0.8rem;
-  min-height: 320px;
-  padding: 0.5rem;
-}
-.grid-wrapper {
-  border: 1px solid #ccc;
-  background: #fdfdfa;
-  border-radius: 6px;
-  padding: 0.5rem;
-  height: 360px;
+.placeholder {
+  padding: 2rem;
+  color: #999;
 }
 </style>

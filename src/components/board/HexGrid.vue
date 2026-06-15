@@ -5,12 +5,17 @@ import { coordKey, type Coord } from '@/engine/hexGrid'
 import { HEX_SIZE, HexLayout } from '@/components/board/hexLayout'
 
 const props = defineProps<{
-  cells: HexCell[]
+  cells: readonly HexCell[]
   playerPosition?: Coord
   highlightSet?: Set<string>
   dropMode?: boolean
   dimmed?: boolean
   terrainColors?: Record<string, string>
+  // Editor affordances: render every cell at full opacity and show event markers
+  // regardless of is_revealed, mark the selected/start cells.
+  editing?: boolean
+  selectedKey?: string
+  startKey?: string
 }>()
 
 const emit = defineEmits<{
@@ -91,6 +96,10 @@ interface RenderedCell {
   key: string
   highlighted: boolean
   isPlayer: boolean
+  selected: boolean
+  isStart: boolean
+  showEvent: boolean
+  fillOpacity: number
 }
 
 const rendered = computed<RenderedCell[]>(() =>
@@ -102,6 +111,7 @@ const rendered = computed<RenderedCell[]>(() =>
       props.playerPosition.q === cell.q &&
       props.playerPosition.r === cell.r
     const highlighted = props.highlightSet?.has(key) ?? false
+    const revealed = props.editing || cell.is_revealed
     return {
       cell,
       cx: center.x,
@@ -110,6 +120,10 @@ const rendered = computed<RenderedCell[]>(() =>
       key,
       highlighted,
       isPlayer,
+      selected: props.selectedKey === key,
+      isStart: props.startKey === key,
+      showEvent: !!cell.event_id && revealed,
+      fillOpacity: revealed ? 1 : 0.35,
     }
   }),
 )
@@ -154,13 +168,14 @@ function onHexClick(coord: Coord): void {
           player: r.isPlayer,
           unrevealed: !r.cell.is_revealed,
           droppable: dropMode,
+          selected: r.selected,
         }"
         @click="onHexClick({ q: r.cell.q, r: r.cell.r })"
       >
         <polygon
           :points="r.points"
           :fill="terrainFill(r.cell)"
-          :fill-opacity="r.cell.is_revealed ? 1 : 0.35"
+          :fill-opacity="r.fillOpacity"
           stroke="#222"
           :stroke-width="r.isPlayer ? playerStroke : baseStroke"
         />
@@ -174,7 +189,7 @@ function onHexClick(coord: Coord): void {
           {{ r.cell.terrain }}
         </text>
         <text
-          v-if="r.cell.event_id && r.cell.is_revealed"
+          v-if="r.showEvent"
           :x="r.cx"
           :y="r.cy + eventYOffset"
           text-anchor="middle"
@@ -182,6 +197,17 @@ function onHexClick(coord: Coord): void {
           fill="#330000"
         >
           ★
+        </text>
+        <text
+          v-if="r.isStart"
+          :x="r.cx"
+          :y="r.cy + playerYOffset"
+          text-anchor="middle"
+          :font-size="playerFontSize"
+          font-weight="bold"
+          fill="#0033aa"
+        >
+          ⚑
         </text>
         <text
           v-if="r.isPlayer"
@@ -227,6 +253,10 @@ function onHexClick(coord: Coord): void {
 }
 .hex.highlighted {
   cursor: pointer;
+}
+.hex.selected polygon {
+  stroke: #d08700;
+  stroke-width: 1.5;
 }
 .hex.droppable {
   cursor: pointer;
