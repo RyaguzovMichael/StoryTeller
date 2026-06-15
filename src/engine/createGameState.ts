@@ -1,12 +1,12 @@
-// The single place that knows about Scenario. Pure projection of an authored
-// scenario (the story definition) into a fresh GameState the engine can run. It
-// only maps data — no shuffling, dealing or reveal: that one-time setup is game
-// logic the engine performs on load (see GameEngine.load). The result has
-// `initialized: false` so the engine knows it still needs that setup.
+// The single place that knows about Scenario. Maps an authored scenario (the
+// story definition) into a fully ready-to-play GameState and performs the
+// one-time setup itself — shuffle, deal the opening hand, reveal the start cell —
+// so the engine only ever deals with the running game, never with setup.
 import type { Scenario } from '@/engine/types/scenario'
 import { createEmptyState, type GameState } from '@/engine/types/gameState'
+import { createRandom } from '@/engine/random'
 
-export function createGameState(scenario: Scenario): GameState {
+export function createGameState(scenario: Scenario, seed?: number): GameState {
   // Deep clone the whole scenario up front so nothing in the resulting GameState
   // shares references with the authored definition — the engine may mutate any
   // field during play, and the scenario must stay untouched.
@@ -17,11 +17,21 @@ export function createGameState(scenario: Scenario): GameState {
   state.storyMetadata = source.metadata
   state.eventsById = Object.fromEntries(source.eventsData.map((event) => [event.id, event]))
   state.narrativeCardTemplates = source.playerDeck.filter((card) => card.type === 'narrative')
-  state.initialHandSize = source.initial_hand_size
   state.narrativeInterventionInterval = source.narrative_intervention_interval
+  state.drawCardCountPerTurn = source.draw_card_count_per_turn
+  state.handLimit = source.hand_limit
   state.resources = source.initial_resources
-  state.position = source.starting_position
+  state.playerPosition = source.starting_position
   state.cells = source.mapData.cells
-  state.drawPile = source.playerDeck.filter((card) => card.type === 'standard')
+
+  state.random = createRandom(seed ?? (Date.now() & 0xffffff))
+  state.drawPile = state.random.shuffle(source.playerDeck.filter((card) => card.type === 'standard'))
+  state.hand = state.drawPile.splice(0, source.initial_hand_size)
+
+  const startCell = state.cells.find(
+    (cell) => cell.q === state.playerPosition.q && cell.r === state.playerPosition.r,
+  )
+  if (startCell) startCell.is_revealed = true
+
   return state
 }
