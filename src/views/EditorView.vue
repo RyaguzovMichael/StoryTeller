@@ -21,12 +21,18 @@ function onSave(): void {
 <template>
   <main class="editor-view">
     <header class="editor-header">
-      <div class="actions">
-        <span v-if="store.issues.length" class="issues" :title="store.issues.map((i) => i.message).join('\n')">
-          ⚠ {{ store.issues.length }} issue(s)
-        </span>
-        <button type="button" class="primary" @click="onSave">Save</button>
-        <RouterLink to="/game">Play</RouterLink>
+      <div class="bar">
+        <div class="brand">
+          <h1>Storyteller</h1>
+          <RouterLink to="/editor" class="mode">Edit</RouterLink>
+        </div>
+        <div class="actions">
+          <span v-if="store.issues.length" class="issues" :title="store.issues.map((i) => i.message).join('\n')">
+            ⚠ {{ store.issues.length }} issue(s)
+          </span>
+          <button type="button" class="primary" @click="onSave">Save</button>
+          <RouterLink to="/game">Play</RouterLink>
+        </div>
       </div>
       <nav class="tab-strip">
         <button type="button" :class="{ active: tab === 'map' }" @click="tab = 'map'">Map</button>
@@ -56,12 +62,41 @@ function onSave(): void {
   flex-direction: column;
   background: linear-gradient(180deg, var(--st-wood) 0%, var(--st-wood-dark) 100%);
 }
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.brand h1 {
+  margin: 0;
+  font-family: Georgia, 'Iowan Old Style', serif;
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+  color: var(--st-ink);
+  white-space: nowrap;
+}
+.brand .mode {
+  color: var(--st-gold);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--st-gold-line);
+  padding-bottom: 1px;
+  font-size: 0.9rem;
+}
+.brand .mode:hover {
+  color: var(--st-ink-bright);
+}
 .actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 0.75rem;
-  padding: 0.4rem 0.75rem;
 }
 .actions :deep(a) {
   color: var(--st-gold);
@@ -73,7 +108,6 @@ function onSave(): void {
   color: var(--st-warn);
   font-size: 0.85rem;
   cursor: help;
-  margin-right: auto;
 }
 .actions .primary {
   background: linear-gradient(180deg, var(--st-wood-button-start) 0%, var(--st-wood-button-end) 100%);
