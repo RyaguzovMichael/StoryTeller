@@ -12,9 +12,10 @@
 // transient EngineEvents for one-off signals (notifications, persistence). The
 // engine performs no I/O; it hands events to onEvent subscribers. It is the only
 // writer of the state.
-import type { Card, Coord, HexCell } from '@/engine/types/scenario'
-import type { EngineEvent, GameState } from '@/engine/types/gameState'
-import { isAdjacent } from '@/engine/hexGrid'
+import type { Card, HexCell } from '@/engine/types/scenario'
+import type { GameState } from '@/engine/gameState'
+import type { EngineEvent } from '@/engine/engineEvent'
+import { isAdjacent, type Coord } from '@/engine/hexGrid'
 
 export class GameEngine {
   private listeners: Array<(event: EngineEvent) => void> = []

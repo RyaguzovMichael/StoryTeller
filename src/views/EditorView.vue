@@ -2,8 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import HexGrid from '@/components/board/HexGrid.vue'
 import { useNotificationStore } from '@/notifications/notificationStore'
-import { isScenario, saveScenario } from '@/infrastructure/scenarioStorage'
-import { loadOrCreateScenario } from '@/scenarioSource'
+import { isScenario, loadScenario, saveScenario } from '@/infrastructure/scenarioStorage'
 import {
   DEFAULT_PARAMS,
   generateScenario,
@@ -19,7 +18,9 @@ const jsonText = ref<string>('')
 const params = reactive<GeneratorParams>({ ...DEFAULT_PARAMS })
 
 onMounted(() => {
-  const s = loadOrCreateScenario()
+  // The editor owns scenario generation, so it may seed a default to author from
+  // when storage is empty — unlike the game, which refuses to invent a story.
+  const s = loadScenario() ?? generateScenario(DEFAULT_PARAMS)
   setScenario(s)
 })
 

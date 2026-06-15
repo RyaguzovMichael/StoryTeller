@@ -91,17 +91,20 @@ engine/            Portable game core — pure TS, NO Vue/Pinia/notifications/pe
                    Intended for reuse in another game. See docs/DEVELOPMENT.md
                    for the engine/game boundary in detail.
   gameEngine.ts      `class GameEngine`: state machine for the 4-phase loop.
-  hexGrid.ts         Pure axial-coordinate math (adjacency, distance, radius).
+  gameState.ts       Runtime `GameState` + `GamePhase`, `createEmptyState`, and the
+                     domain<->DTO mapping (serialize/deserializeGameState).
+  engineEvent.ts     `EngineEvent` — transient signals the engine emits to its host.
+  hexGrid.ts         Pure axial-coordinate math (adjacency, distance, radius) + the
+                     `Coord` type. No dependencies — a leaf.
   random.ts          Deterministic seeded RNG (createRandom/restoreRandom, serializable state).
+  selectors.ts       Pure derived-state helpers over GameState (e.g. reachableCoordKeys).
   createGameState.ts Scenario -> ready-to-play GameState (shuffle/deal/reveal).
   types/
     scenario/        Authored data contract, one type per file + barrel index.ts
-                     (coord, hexCell, card, event, scenario).
-    gameState/       Runtime state types (phase, gameState, engineEvent) + barrel index.ts.
+                     (hexCell, card, event, scenario; `Coord` lives in hexGrid.ts).
 game/              Vue layer around the engine: useGame (Pinia store), and the
                    useGameEffects/useEndGameManager observers.
 editor/            Editor-side logic (mapTransforms.ts, scenarioGenerator.ts).
-scenarioSource.ts  Orchestrates scenario loading: persisted one, else generate + save.
 views/             Route-level pages: GameView.vue, EditorView.vue.
 components/        Shared presentational UI, subdivided by role:
   board/             HexGrid.vue + hexLayout.ts (SVG/pixel geometry — render, not rules).
@@ -109,7 +112,9 @@ components/        Shared presentational UI, subdivided by role:
   hud/               ResourceBar.
   system/            SystemNotificationManager.
 notifications/     App-feedback store + its types (notificationStore.ts, types.ts).
-infrastructure/    Persistence layer (storage.ts — localStorage repository).
+infrastructure/    Persistence layer: scenarioStorage.ts + gameStorage.ts (localStorage
+                   repositories). gameStorage is a dumb byte store — it takes/returns a
+                   serializable GameStateDTO and knows nothing about the engine's RNG.
 router.ts          Routes (flat file, not a folder).
 ```
 
@@ -129,15 +134,16 @@ The engine is a **Universal Card Narrative Engine** where stories are configured
 | 3 — Accept Consequences | Engine compares `$S` vs event difficulty; branches to Failure / Success / Critical Success; updates resources |
 | 4 — Story Intervention | Every N turns, player receives a narrative card that must be placed on a hex, permanently rewriting its tag and `event_id` |
 
-### Key data contracts (in `src/engine/types/`)
+### Key data contracts (scenario types in `src/engine/types/scenario/`; `GameState` in `src/engine/gameState.ts`)
 - `MapConfig` — array of hex cells with axial coordinates, terrain tag, `event_id`, `is_revealed`
 - `EventPool` — events with hidden difficulty, `success_outcome`, `fail_outcome` (resource deltas)
 - `PlayerDeck` — cards with id, narrative text, type (`standard` | `narrative`), hidden `weight`
 - `GameState` — resources, current phase, hand/tableau/drawPile, `playerPosition`,
   current event, a live `random` generator, `drawCardCountPerTurn`/`handLimit`;
   the hidden check total is computed on demand from tableau card weights
-  (`sumTableauWeight`), not stored as a `$S` field. It is a domain model — storage
-  flattens `random` to a serializable `randomState` via its DTO layer.
+  (`sumTableauWeight`), not stored as a `$S` field. It is a domain model — its
+  `serializeGameState`/`deserializeGameState` flatten the live `random` to a
+  serializable `randomState`, so `gameStorage` only ever sees a plain `GameStateDTO`.
 - `Scenario` — `{ id, metadata, mapData, eventsData, playerDeck, initial_hand_size,
   draw_card_count_per_turn, hand_limit, ... }` (the persisted story JSON)
 
@@ -147,6 +153,10 @@ The engine is a **Universal Card Narrative Engine** where stories are configured
 - Endings and system notifications use Vue `watch`/`watchEffect` (Observer pattern) via `game/useEndGameManager.ts` and `components/system/SystemNotificationManager.vue`.
 
 ### State and storage
+- **Scenario sourcing:** there is no fallback generation. `GameView` loads the
+  persisted scenario via `loadScenario()`; if none exists (or it is corrupt), the
+  game does not start (empty guard). Only the **editor** may seed a default via
+  `generateScenario` — generation is its job, not the game's.
 - **Stage 2** (current target): `localStorage` only, single test scenario.
 - **Stage 3**: `localStorage` array of `Story` objects + `vue-router`.
 - **Stage 4**: Replace `localStorage` with **Supabase** (PostgreSQL metadata + Storage bucket for JSON files). RLS: public SELECT, author-only writes. Game loop stays local after initial JSON download.

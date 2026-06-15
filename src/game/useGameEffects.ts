@@ -6,6 +6,7 @@ import { onScopeDispose } from 'vue'
 import { useGame } from '@/game/useGame'
 import { useNotificationStore } from '@/notifications/notificationStore'
 import { saveGame } from '@/infrastructure/gameStorage'
+import { serializeGameState } from '@/engine/gameState'
 
 export function useGameEffects(): void {
   const game = useGame()
@@ -20,7 +21,7 @@ export function useGameEffects(): void {
         notifications.push(`Game over: ${event.reason}.`, 'game-over')
         break
       case 'persist':
-        saveGame(event.state)
+        saveGame(serializeGameState(event.state))
         break
     }
   })

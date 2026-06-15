@@ -10,9 +10,11 @@ import { useGame } from '@/game/useGame'
 import { useGameEffects } from '@/game/useGameEffects'
 import { useNotificationStore } from '@/notifications/notificationStore'
 import { clearGame, loadGame } from '@/infrastructure/gameStorage'
-import { loadOrCreateScenario } from '@/scenarioSource'
+import { loadScenario } from '@/infrastructure/scenarioStorage'
 import { createGameState } from '@/engine/createGameState'
-import type { Card, Coord } from '@/engine/types/scenario'
+import { deserializeGameState } from '@/engine/gameState'
+import type { Card } from '@/engine/types/scenario'
+import type { Coord } from '@/engine/hexGrid'
 
 const game = useGame()
 const notifications = useNotificationStore()
@@ -37,10 +39,16 @@ onMounted(() => {
   // Resume an in-progress save for this story if one exists; otherwise (no save,
   // a save for another story, or a finished game) map the scenario into a fresh,
   // ready-to-play game.
-  const scenario = loadOrCreateScenario()
+  const scenario = loadScenario()
+  // No scenario authored/saved yet: nothing to play. The view shows its empty
+  // guard rather than inventing a story.
+  if (!scenario) {
+    ready.value = true
+    return
+  }
   const saved = loadGame()
   if (saved && saved.storyId === scenario.id && saved.phase !== 'game-over') {
-    game.engine.load(saved)
+    game.engine.load(deserializeGameState(saved))
   } else {
     game.engine.load(createGameState(scenario))
   }
@@ -49,9 +57,11 @@ onMounted(() => {
 
 // Discards the current save and starts the story over from its definition.
 function onNewGame(): void {
+  const scenario = loadScenario()
+  if (!scenario) return
   clearGame()
   notifications.clear()
-  game.engine.load(createGameState(loadOrCreateScenario()))
+  game.engine.load(createGameState(scenario))
 }
 
 const gameOver = computed<boolean>(() => phase.value === 'game-over')

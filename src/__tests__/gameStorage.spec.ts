@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, beforeAll, afterAll, vi } from 'vitest'
 
 import { saveGame, loadGame, clearGame } from '@/infrastructure/gameStorage'
-import { createEmptyState } from '@/engine/types/gameState'
-import { createRandom } from '@/engine/random'
-import type { GameState } from '@/engine/types/gameState'
+import { createEmptyState, serializeGameState } from '@/engine/gameState'
+import type { GameStateDTO } from '@/engine/gameState'
 
 const SAVE_KEY = 'storyteller:save:v2'
 
@@ -32,14 +31,11 @@ afterAll(() => {
   vi.unstubAllGlobals()
 })
 
-function aSave(): GameState {
+function aSave(): GameStateDTO {
   const state = createEmptyState()
   state.storyId = 'story-1'
   state.resources = { gold: 3 }
-  state.playerPosition = { q: 1, r: 0 }
-  state.random = createRandom(42)
-  state.random.next() // advance the stream so the saved position is non-trivial
-  return state
+  return serializeGameState(state)
 }
 
 describe('storage save/load', () => {
@@ -47,17 +43,12 @@ describe('storage save/load', () => {
     clearGame()
   })
 
-  it('round-trips a GameState, flattening random to randomState and back', () => {
-    const state = aSave()
-    saveGame(state)
+  it('round-trips a plain DTO unchanged', () => {
+    const dto = aSave()
+    saveGame(dto)
     const loaded = loadGame()!
 
-    expect(loaded.storyId).toBe('story-1')
-    expect(loaded.resources).toEqual({ gold: 3 })
-    expect(loaded.playerPosition).toEqual({ q: 1, r: 0 })
-    // The restored generator resumes the exact same stream.
-    expect(loaded.random.state).toBe(state.random.state)
-    expect(loaded.random.next()).toBe(state.random.next())
+    expect(loaded).toEqual(dto)
   })
 
   it('returns null when there is no save', () => {

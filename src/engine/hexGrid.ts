@@ -1,4 +1,7 @@
-import type { Coord } from '@/engine/types/scenario'
+export interface Coord {
+  q: number
+  r: number
+}
 
 export const NEIGHBOR_DIRS: ReadonlyArray<Coord> = [
   { q: 1, r: 0 },

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 
 import { reachableCoordKeys } from '@/engine/selectors'
-import { createEmptyState } from '@/engine/types/gameState'
-import type { GameState } from '@/engine/types/gameState'
+import { createEmptyState } from '@/engine/gameState'
+import type { GameState } from '@/engine/gameState'
 import type { HexCell } from '@/engine/types/scenario'
 
 function cell(q: number, r: number): HexCell {

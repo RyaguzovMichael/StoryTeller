@@ -1,4 +1,4 @@
-import type { Coord } from './coord'
+import type { Coord } from '@/engine/hexGrid'
 
 // One tile of the map: an axial coordinate plus its authored content.
 export interface HexCell extends Coord {

@@ -9,8 +9,8 @@ import {
   neighbourCoordKeys,
   enumerateRadius,
   recenterCoords,
+  type Coord,
 } from '@/engine/hexGrid'
-import type { Coord } from '@/engine/types/scenario'
 
 describe('NEIGHBOR_DIRS', () => {
   it('lists exactly six directions', () => {

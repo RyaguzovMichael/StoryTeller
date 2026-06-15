@@ -7,7 +7,7 @@
 import { computed, markRaw, reactive, type ComputedRef } from 'vue'
 import { defineStore } from 'pinia'
 import { GameEngine } from '@/engine/gameEngine'
-import { createEmptyState } from '@/engine/types/gameState/gameState'
+import { createEmptyState } from '@/engine/gameState'
 import { reachableCoordKeys } from '@/engine/selectors'
 
 // Expose each state field as a read-only computed: reassigning `game.hand = ...`
