@@ -11,6 +11,7 @@ const notifications = useNotificationStore()
 
 const form = reactive({
   ...DEFAULT_GEN,
+  regenerateTerrains: true,
   regenerateEvents: true,
   regenerateDeck: true,
 })
@@ -22,9 +23,11 @@ function clamp(value: number, min: number, max: number): number {
 function onGenerate(): void {
   const deckSize = clamp(form.deckSize, 1, 40)
   store.regenerateContent({
+    terrainCount: clamp(form.terrainCount, 1, 5),
     eventCount: clamp(form.eventCount, 1, 20),
     deckSize,
     narrativeCount: clamp(form.narrativeCount, 0, deckSize),
+    regenerateTerrains: form.regenerateTerrains,
     regenerateEvents: form.regenerateEvents,
     regenerateDeck: form.regenerateDeck,
   })
@@ -38,13 +41,15 @@ function onGenerate(): void {
     <div class="dialog" role="dialog" aria-modal="true">
       <h2>Regenerate content</h2>
       <div class="form-grid">
+        <label>Terrain types<input v-model.number="form.terrainCount" type="number" min="1" max="5" /></label>
         <label>Event count<input v-model.number="form.eventCount" type="number" min="1" max="20" /></label>
         <label>Deck size<input v-model.number="form.deckSize" type="number" min="1" max="40" /></label>
         <label>Narrative cards<input v-model.number="form.narrativeCount" type="number" min="0" :max="form.deckSize" /></label>
       </div>
+      <label class="check"><input v-model="form.regenerateTerrains" type="checkbox" /> Regenerate terrains</label>
       <label class="check"><input v-model="form.regenerateEvents" type="checkbox" /> Regenerate events</label>
       <label class="check"><input v-model="form.regenerateDeck" type="checkbox" /> Regenerate deck</label>
-      <p class="note">Regenerating events clears events already placed on the map.</p>
+      <p class="note">Regenerating terrains drops cells painted with a removed terrain back to blank; regenerating events clears events already placed on the map.</p>
       <div class="actions">
         <button type="button" @click="emit('close')">Cancel</button>
         <button type="button" class="primary" @click="onGenerate">Generate</button>

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { generateBlankScenario, generateDeck } from '@/editor/scenarioGenerator'
+import { generateBlankScenario, generateDeck, generateTerrains } from '@/editor/scenarioGenerator'
 import { createRandom } from '@/engine/random'
 
 describe('generateBlankScenario', () => {
@@ -15,6 +15,21 @@ describe('generateBlankScenario', () => {
     expect(scenario.playerDeck).toEqual([])
     expect(scenario.starting_position).toEqual({ q: 0, r: 0 })
     expect(scenario.initial_hand_size).toBe(0)
+  })
+})
+
+describe('generateTerrains', () => {
+  it('returns the requested number of distinct terrains with colors', () => {
+    const terrains = generateTerrains(createRandom(1), 3)
+    expect(terrains).toHaveLength(3)
+    const names = terrains.map((terrain) => terrain.name)
+    expect(new Set(names).size).toBe(3)
+    for (const terrain of terrains) expect(terrain.color).toMatch(/^#/)
+  })
+
+  it('clamps the count to the palette size', () => {
+    expect(generateTerrains(createRandom(1), 99)).toHaveLength(5)
+    expect(generateTerrains(createRandom(1), 0)).toHaveLength(1)
   })
 })
 

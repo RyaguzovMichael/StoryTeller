@@ -4,21 +4,39 @@ import type { Random } from '@/engine/random'
 
 // Default counts offered in the editor's "Regenerate…" dialog.
 export interface GenerateCounts {
+  terrainCount: number
   eventCount: number
   deckSize: number
   narrativeCount: number
 }
 
 export const DEFAULT_GEN: GenerateCounts = {
+  terrainCount: 4,
   eventCount: 4,
   deckSize: 8,
   narrativeCount: 2,
 }
 
-// The single terrain a freshly cleared scenario starts with. The author adds
-// more from the Content tab; "fill" and deck generation draw from whatever
-// terrains the draft actually has, not from a fixed palette.
-const STARTER_TERRAIN: TerrainType = { name: 'plains', color: '#cdd9a3' }
+// Palette the "Regenerate…" dialog draws terrain types from: names paired with
+// the fill colors HexGrid falls back to, so generated terrains carry their own
+// colors. generateTerrains picks a subset; the author can still add/edit terrains
+// by hand from the Content tab.
+const TERRAIN_PALETTE: ReadonlyArray<TerrainType> = [
+  { name: 'plains', color: '#cdd9a3' },
+  { name: 'swamp', color: '#7a8c5c' },
+  { name: 'forest', color: '#4f7a4a' },
+  { name: 'tavern', color: '#c08a4a' },
+  { name: 'ruin', color: '#9c9c9c' },
+]
+
+// The single terrain a freshly cleared scenario starts with.
+const STARTER_TERRAIN: TerrainType = TERRAIN_PALETTE[0] as TerrainType
+
+// Picks `count` distinct terrain types from the palette (clamped to [1, palette]).
+export function generateTerrains(rng: Random, count: number): TerrainType[] {
+  const clamped = Math.max(1, Math.min(count, TERRAIN_PALETTE.length))
+  return rng.shuffle(TERRAIN_PALETTE).slice(0, clamped).map((terrain) => ({ ...terrain }))
+}
 const RESOURCE_KEYS: ReadonlyArray<string> = ['health', 'gold']
 
 const EVENT_TEXTS: ReadonlyArray<string> = [

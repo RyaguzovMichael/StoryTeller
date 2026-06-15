@@ -167,6 +167,23 @@ describe('ScenarioEditor — terrains', () => {
     ed.removeTerrain('ruin')
     expect(ed.draft.terrains.map((t) => t.name)).not.toContain('ruin')
   })
+
+  it('replaceTerrains swaps the palette and blanks cells with a removed terrain', () => {
+    const ed = editor()
+    ed.replaceTerrains([{ name: 'plains', color: '#fff' }, { name: 'desert', color: '#eecc88' }])
+    expect(ed.draft.terrains.map((t) => t.name)).toEqual(['plains', 'desert'])
+    // 'plains' survives; 'forest'/'swamp' are gone, so those cells drop to blank.
+    expect(ed.draft.cellAt({ q: 0, r: 0 })?.terrain).toBe('plains')
+    expect(ed.draft.cellAt({ q: 1, r: 0 })?.terrain).toBe(BLANK_TERRAIN)
+    expect(ed.draft.cellAt({ q: 0, r: 1 })?.terrain).toBe(BLANK_TERRAIN)
+  })
+
+  it('replaceTerrains clears a card overwrite_terrain that no longer exists', () => {
+    const ed = editor()
+    ed.updateCard('n1', { overwrite_terrain: 'forest' })
+    ed.replaceTerrains([{ name: 'plains', color: '#fff' }])
+    expect(ed.draft.deck.find((c) => c.id === 'n1')?.overwrite_terrain).toBeUndefined()
+  })
 })
 
 describe('ScenarioEditor — events & deck', () => {

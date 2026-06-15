@@ -103,6 +103,24 @@ export class ScenarioEditor {
     }
   }
 
+  // Swaps the whole terrain palette for a freshly generated one. Cells and cards
+  // referencing a terrain that no longer exists are cleared: such a cell drops
+  // back to blank (a fill target), and a card's overwrite_terrain is unset.
+  replaceTerrains(terrains: TerrainType[]): void {
+    this.state.terrainMap.clear()
+    for (const terrain of terrains) this.state.terrainMap.set(terrain.name, terrain)
+    for (const cell of this.state.cellMap.values()) {
+      if (cell.terrain !== BLANK_TERRAIN && !this.state.terrainMap.has(cell.terrain)) {
+        cell.terrain = BLANK_TERRAIN
+      }
+    }
+    for (const card of this.state.cardMap.values()) {
+      if (card.overwrite_terrain != null && !this.state.terrainMap.has(card.overwrite_terrain)) {
+        card.overwrite_terrain = undefined
+      }
+    }
+  }
+
   removeTerrain(name: string): void {
     if (!this.state.terrainMap.has(name)) throw new Error(`Unknown terrain "${name}"`)
     for (const cell of this.state.cellMap.values()) {

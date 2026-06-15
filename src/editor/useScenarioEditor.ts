@@ -7,7 +7,12 @@ import { computed, reactive, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import { ScenarioDraft } from '@/editor/scenarioDraft'
 import { ScenarioEditor } from '@/editor/scenarioEditor'
-import { generateBlankScenario, generateDeck, generateEvents } from '@/editor/scenarioGenerator'
+import {
+  generateBlankScenario,
+  generateDeck,
+  generateEvents,
+  generateTerrains,
+} from '@/editor/scenarioGenerator'
 import { loadScenario, saveScenario } from '@/infrastructure/scenarioStorage'
 import { enumerateRect, neighborsOf, coordKey, recenterCoords, type Coord } from '@/engine/hexGrid'
 import { createRandom } from '@/engine/random'
@@ -15,9 +20,11 @@ import type { HexCell, Scenario } from '@/engine/types/scenario'
 
 // What the "Regenerate…" dialog asks the store to rebuild.
 export interface RegenerateOptions {
+  terrainCount: number
   eventCount: number
   deckSize: number
   narrativeCount: number
+  regenerateTerrains: boolean
   regenerateEvents: boolean
   regenerateDeck: boolean
 }
@@ -94,11 +101,15 @@ export const useScenarioEditor = defineStore('scenarioEditor', () => {
     editor.value.fillBlankTerrains(createRandom(seed.value))
   }
 
-  // Generate a fresh event pool and/or deck from the seed. Events are rebuilt
-  // first so a regenerated deck can point its narrative cards at the new event ids.
+  // Generate a fresh terrain palette, event pool and/or deck from the seed. The
+  // order matters: terrains and events are rebuilt before the deck so a
+  // regenerated deck can point its narrative cards at the fresh terrains/event ids.
   function regenerateContent(options: RegenerateOptions): void {
     const random = createRandom(seed.value)
     const activeEditor = editor.value
+    if (options.regenerateTerrains) {
+      activeEditor.replaceTerrains(generateTerrains(random, options.terrainCount))
+    }
     let eventIds = activeEditor.draft.events.map((event) => event.id)
     if (options.regenerateEvents) {
       const events = generateEvents(random, options.eventCount)
